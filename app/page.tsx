@@ -203,6 +203,8 @@ export default function Home() {
       });
   }, [matches, players, predictions, selectedPlayerId]);
 
+  const openMatches = useMemo(() => matches.filter((match) => match.status !== "finished"), [matches]);
+
   useEffect(() => {
     async function loadGame() {
       if (!supabase) {
@@ -532,12 +534,12 @@ export default function Home() {
             </div>
           ) : (
             <div className="mt-4 grid gap-4">
-              {matches.length === 0 ? (
+              {openMatches.length === 0 ? (
                 <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
-                  No matches have been seeded yet.
+                  Engir opnir leikir eins og er.
                 </div>
               ) : (
-                matches.map((match) => {
+                openMatches.map((match) => {
                   const locked = new Date(match.kickoff_time).getTime() <= Date.now();
                   const savedPrediction = selectedPlayerId
                     ? predictions.find(
