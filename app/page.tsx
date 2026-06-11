@@ -13,6 +13,7 @@ type PredictionDraft = {
 
 const avatarBucket = "avatars";
 const flagBaseUrl = "https://flagcdn.com/w80";
+const officialScheduleKey = demoMatches.map((match) => `${match.home_team}|${match.away_team}|${match.kickoff_time}`).join("~~");
 
 const teamFlagCodes: Record<string, string> = {
   Algeria: "dz",
@@ -85,6 +86,40 @@ async function seedDemoMatches() {
     )
     .select()
     .order("kickoff_time", { ascending: true });
+}
+
+async function resetOfficialSchedule() {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  const { error: predictionDeleteError } = await supabase
+    .from("predictions")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+
+  if (predictionDeleteError) {
+    return { data: null, error: predictionDeleteError };
+  }
+
+  const { error: matchDeleteError } = await supabase
+    .from("matches")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+
+  if (matchDeleteError) {
+    return { data: null, error: matchDeleteError };
+  }
+
+  return seedDemoMatches();
+}
+
+function scheduleKey(matches: Match[]) {
+  return matches.map((match) => `${match.home_team}|${match.away_team}|${match.kickoff_time}`).join("~~");
+}
+
+function hasOfficialSchedule(matches: Match[]) {
+  return matches.length === demoMatches.length && scheduleKey(matches) === officialScheduleKey;
 }
 
 function kickoffLabel(value: string) {
@@ -177,23 +212,25 @@ export default function Home() {
         setPlayers(playersResult.data);
         setSelectedPlayerId(playersResult.data[0]?.id ?? "");
       }
+
       if (matchesResult.data) {
-        if (matchesResult.data.length) {
-          setMatches(matchesResult.data);
-        } else {
-          const seededMatches = await seedDemoMatches();
+        if (!matchesResult.data.length || !hasOfficialSchedule(matchesResult.data)) {
+          setMessage("Updating match schedule...");
+          const seededMatches = await resetOfficialSchedule();
           if (seededMatches.error) {
             setMessage(seededMatches.error.message);
             return;
           }
-          if (seededMatches.data) {
-            setMatches(seededMatches.data);
-            setMessage("Demo matches were added automatically.");
+          const nextMatches = seededMatches.data ?? [];
+          setMatches(nextMatches);
+          setPredictions([]);
+          setMessage("Match schedule updated with the right teams.");
+        } else {
+          setMatches(matchesResult.data);
+          if (predictionsResult.data) {
+            setPredictions(predictionsResult.data);
           }
         }
-      }
-      if (predictionsResult.data) {
-        setPredictions(predictionsResult.data);
       }
     }
 
@@ -450,7 +487,7 @@ export default function Home() {
                         <p className="text-xs font-black uppercase tracking-wide text-ocean">
                           {kickoffLabel(match.kickoff_time)}
                         </p>
-                        <p className="text-xs font-semibold text-slate-500">islenskur timi</p>
+                        <p className="text-xs font-semibold text-slate-500">Iceland time</p>
                         <p className="mt-1 text-xs font-black text-slate-700">
                           {match.status === "finished" && match.home_score !== null && match.away_score !== null
                             ? `Final: ${match.home_score}-${match.away_score}`
