@@ -13,6 +13,28 @@ type PredictionDraft = {
 
 const avatarBucket = "avatars";
 
+async function seedDemoMatches() {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  return supabase
+    .from("matches")
+    .upsert(
+      demoMatches.map(({ home_team, away_team, kickoff_time, status, home_score, away_score }) => ({
+        home_team,
+        away_team,
+        kickoff_time,
+        status,
+        home_score,
+        away_score
+      })),
+      { onConflict: "home_team,away_team,kickoff_time" }
+    )
+    .select()
+    .order("kickoff_time", { ascending: true });
+}
+
 function kickoffLabel(value: string) {
   return new Intl.DateTimeFormat("en", {
     weekday: "short",
@@ -69,14 +91,29 @@ export default function Home() {
         supabase.from("predictions").select("*")
       ]);
 
+      const loadError = playersResult.error || matchesResult.error || predictionsResult.error;
+      if (loadError) {
+        setMessage(loadError.message);
+        return;
+      }
+
       if (playersResult.data) {
         setPlayers(playersResult.data);
         setSelectedPlayerId(playersResult.data[0]?.id ?? "");
       }
       if (matchesResult.data) {
-        setMatches(matchesResult.data);
-        if (!matchesResult.data.length) {
-          setMessage("Go to Admin and seed demo matches before saving predictions.");
+        if (matchesResult.data.length) {
+          setMatches(matchesResult.data);
+        } else {
+          const seededMatches = await seedDemoMatches();
+          if (seededMatches.error) {
+            setMessage(seededMatches.error.message);
+            return;
+          }
+          if (seededMatches.data) {
+            setMatches(seededMatches.data);
+            setMessage("Demo matches were added automatically.");
+          }
         }
       }
       if (predictionsResult.data) {
