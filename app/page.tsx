@@ -11,6 +11,8 @@ type PredictionDraft = {
   away_score: string;
 };
 
+type ActiveView = "matches" | "predictions";
+
 const avatarBucket = "avatars";
 const officialScheduleKey = demoMatches.map((match) => `${match.home_team}|${match.away_team}|${match.kickoff_time}`).join("~~");
 
@@ -184,6 +186,7 @@ export default function Home() {
   const [drafts, setDrafts] = useState<Record<string, PredictionDraft>>({});
   const [message, setMessage] = useState("Add your player to join the game.");
   const [busy, setBusy] = useState(false);
+  const [activeView, setActiveView] = useState<ActiveView>("matches");
 
   const selectedPlayer = players.find((player) => player.id === selectedPlayerId);
 
@@ -197,6 +200,17 @@ export default function Home() {
       }))
       .sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
   }, [players, predictions]);
+
+  const selectedPredictions = useMemo(() => {
+    return predictions
+      .filter((prediction) => prediction.player_id === selectedPlayerId)
+      .map((prediction) => ({
+        prediction,
+        match: matches.find((match) => match.id === prediction.match_id)
+      }))
+      .filter((item): item is { prediction: Prediction; match: Match } => Boolean(item.match))
+      .sort((a, b) => new Date(a.match.kickoff_time).getTime() - new Date(b.match.kickoff_time).getTime());
+  }, [matches, predictions, selectedPlayerId]);
 
   useEffect(() => {
     async function loadGame() {
@@ -321,6 +335,10 @@ export default function Home() {
       setMessage("Connect Supabase first, then predictions can be saved.");
       return;
     }
+    if (predictions.some((prediction) => prediction.player_id === selectedPlayerId && prediction.match_id === match.id)) {
+      setMessage("Þessi spá er þegar vistuð og ekki hægt að breyta henni.");
+      return;
+    }
 
     const draft = drafts[match.id];
     if (!draft || draft.home_score === "" || draft.away_score === "") {
@@ -340,16 +358,13 @@ export default function Home() {
     try {
       const { data, error } = await supabase
         .from("predictions")
-        .upsert(
-          {
-            player_id: selectedPlayerId,
-            match_id: match.id,
-            home_score: homeScore,
-            away_score: awayScore,
-            points
-          },
-          { onConflict: "player_id,match_id" }
-        )
+        .insert({
+          player_id: selectedPlayerId,
+          match_id: match.id,
+          home_score: homeScore,
+          away_score: awayScore,
+          points
+        })
         .select()
         .single();
 
@@ -357,13 +372,8 @@ export default function Home() {
         throw error;
       }
 
-      setPredictions((current) => [
-        ...current.filter(
-          (prediction) => !(prediction.player_id === selectedPlayerId && prediction.match_id === match.id)
-        ),
-        data
-      ]);
-      setMessage("Prediction saved.");
+      setPredictions((current) => [...current, data]);
+      setMessage("Spá vistuð. Ekki er hægt að breyta henni eftir vistun.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save prediction.");
     } finally {
@@ -470,99 +480,155 @@ export default function Home() {
         </aside>
 
         <section className="rounded-lg border-4 border-ink bg-white p-4 shadow-soft">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-black">Matches</h2>
               <p className="text-sm font-semibold text-slate-600">
                 {selectedPlayer ? `Predictions for ${selectedPlayer.name}` : "Choose a player to start predicting."}
               </p>
             </div>
+            <div className="grid grid-cols-2 rounded-lg border-2 border-ink bg-slate-100 p-1 text-sm font-black">
+              <button
+                className={`rounded-md px-4 py-2 ${activeView === "matches" ? "bg-ink text-white" : "text-ink"}`}
+                onClick={() => setActiveView("matches")}
+                type="button"
+              >
+                Leikir
+              </button>
+              <button
+                className={`rounded-md px-4 py-2 ${activeView === "predictions" ? "bg-ink text-white" : "text-ink"}`}
+                onClick={() => setActiveView("predictions")}
+                type="button"
+              >
+                Spár
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 grid gap-4">
-            {matches.length === 0 ? (
-              <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
-                No matches have been seeded yet.
-              </div>
-            ) : (
-              matches.map((match) => {
-                const locked = new Date(match.kickoff_time).getTime() <= Date.now();
-                const draft = drafts[match.id] ?? { home_score: "", away_score: "" };
-
-                return (
-                  <article key={match.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
-                    <div className="flex flex-col gap-1 border-b border-slate-200 bg-[#f8f5ec] px-4 py-2.5 text-slate-700 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs font-black uppercase tracking-wide">{groupLabel(match)}</p>
-                      <p className="text-sm font-semibold">{kickoffLabel(match.kickoff_time)}</p>
-                    </div>
-
-                    <div className="p-4">
-                      <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
-                        <TeamBadge name={match.home_team} />
-                        <div className="mx-auto text-xl font-black text-slate-500 sm:text-2xl">VS</div>
-                        <TeamBadge align="right" name={match.away_team} />
+          {activeView === "predictions" ? (
+            <div className="mt-4 grid gap-3">
+              {!selectedPlayerId ? (
+                <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
+                  Veldu leikmann til að sjá vistaðar spár.
+                </div>
+              ) : selectedPredictions.length === 0 ? (
+                <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
+                  Engar spár vistaðar fyrir þennan leikmann ennþá.
+                </div>
+              ) : (
+                selectedPredictions.map(({ match, prediction }) => (
+                  <article key={prediction.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide text-ocean">{groupLabel(match)}</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-600">{kickoffLabel(match.kickoff_time)}</p>
                       </div>
-
-                      <div className="mt-4 border-t border-slate-200 pt-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                          <div className="grid grid-cols-[76px_auto_76px] items-end gap-3">
-                            <div>
-                              <span className="mb-2 block min-h-8 text-xs font-black uppercase leading-tight tracking-wide text-slate-600">
-                                {match.home_team}
-                              </span>
-                              <input
-                                aria-label={`${match.home_team} score`}
-                                className="h-12 w-16 rounded-lg border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-xl font-black text-ink outline-none focus:border-grass"
-                                disabled={locked || !selectedPlayerId}
-                                min={0}
-                                onChange={(event) =>
-                                  setDrafts((current) => ({
-                                    ...current,
-                                    [match.id]: { ...draft, home_score: event.target.value }
-                                  }))
-                                }
-                                type="number"
-                                value={draft.home_score}
-                              />
-                            </div>
-                            <span className="pb-3 text-lg font-black text-slate-700">-</span>
-                            <div>
-                              <span className="mb-2 block min-h-8 text-xs font-black uppercase leading-tight tracking-wide text-slate-600">
-                                {match.away_team}
-                              </span>
-                              <input
-                                aria-label={`${match.away_team} score`}
-                                className="h-12 w-16 rounded-lg border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-xl font-black text-ink outline-none focus:border-grass"
-                                disabled={locked || !selectedPlayerId}
-                                min={0}
-                                onChange={(event) =>
-                                  setDrafts((current) => ({
-                                    ...current,
-                                    [match.id]: { ...draft, away_score: event.target.value }
-                                  }))
-                                }
-                                type="number"
-                                value={draft.away_score}
-                              />
-                            </div>
-                          </div>
-
-                          <button
-                            className="h-11 rounded-lg bg-grass px-5 text-base font-black text-white shadow-soft disabled:cursor-not-allowed disabled:bg-slate-400"
-                            disabled={busy || locked || !selectedPlayerId}
-                            onClick={() => savePrediction(match)}
-                            type="button"
-                          >
-                            Vista spá
-                          </button>
-                        </div>
+                      <div className="flex flex-wrap items-center gap-2 text-base font-black text-ink sm:text-lg">
+                        <span>{match.home_team}</span>
+                        <span className="rounded-md bg-slate-100 px-3 py-1">
+                          {prediction.home_score} - {prediction.away_score}
+                        </span>
+                        <span>{match.away_team}</span>
                       </div>
                     </div>
                   </article>
-                );
-              })
-            )}
-          </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-4">
+              {matches.length === 0 ? (
+                <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
+                  No matches have been seeded yet.
+                </div>
+              ) : (
+                matches.map((match) => {
+                  const locked = new Date(match.kickoff_time).getTime() <= Date.now();
+                  const savedPrediction = selectedPlayerId
+                    ? predictions.find(
+                        (prediction) => prediction.player_id === selectedPlayerId && prediction.match_id === match.id
+                      )
+                    : undefined;
+                  const draft = savedPrediction
+                    ? { home_score: String(savedPrediction.home_score), away_score: String(savedPrediction.away_score) }
+                    : drafts[match.id] ?? { home_score: "", away_score: "" };
+                  const predictionLocked = Boolean(savedPrediction);
+
+                  return (
+                    <article key={match.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
+                      <div className="flex flex-col gap-1 border-b border-slate-200 bg-[#f8f5ec] px-4 py-2.5 text-slate-700 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs font-black uppercase tracking-wide">{groupLabel(match)}</p>
+                        <p className="text-sm font-semibold">{kickoffLabel(match.kickoff_time)}</p>
+                      </div>
+
+                      <div className="p-4">
+                        <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                          <TeamBadge name={match.home_team} />
+                          <div className="mx-auto text-xl font-black text-slate-500 sm:text-2xl">VS</div>
+                          <TeamBadge align="right" name={match.away_team} />
+                        </div>
+
+                        <div className="mt-4 border-t border-slate-200 pt-4">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                            <div className="grid grid-cols-[76px_auto_76px] items-end gap-3">
+                              <div>
+                                <span className="mb-2 block min-h-8 text-xs font-black uppercase leading-tight tracking-wide text-slate-600">
+                                  {match.home_team}
+                                </span>
+                                <input
+                                  aria-label={`${match.home_team} score`}
+                                  className="h-12 w-16 rounded-lg border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-xl font-black text-ink outline-none focus:border-grass disabled:text-slate-500"
+                                  disabled={locked || !selectedPlayerId || predictionLocked}
+                                  min={0}
+                                  onChange={(event) =>
+                                    setDrafts((current) => ({
+                                      ...current,
+                                      [match.id]: { ...draft, home_score: event.target.value }
+                                    }))
+                                  }
+                                  type="number"
+                                  value={draft.home_score}
+                                />
+                              </div>
+                              <span className="pb-3 text-lg font-black text-slate-700">-</span>
+                              <div>
+                                <span className="mb-2 block min-h-8 text-xs font-black uppercase leading-tight tracking-wide text-slate-600">
+                                  {match.away_team}
+                                </span>
+                                <input
+                                  aria-label={`${match.away_team} score`}
+                                  className="h-12 w-16 rounded-lg border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-xl font-black text-ink outline-none focus:border-grass disabled:text-slate-500"
+                                  disabled={locked || !selectedPlayerId || predictionLocked}
+                                  min={0}
+                                  onChange={(event) =>
+                                    setDrafts((current) => ({
+                                      ...current,
+                                      [match.id]: { ...draft, away_score: event.target.value }
+                                    }))
+                                  }
+                                  type="number"
+                                  value={draft.away_score}
+                                />
+                              </div>
+                            </div>
+
+                            <button
+                              className="h-11 rounded-lg bg-grass px-5 text-base font-black text-white shadow-soft disabled:cursor-not-allowed disabled:bg-slate-400"
+                              disabled={busy || locked || !selectedPlayerId || predictionLocked}
+                              onClick={() => savePrediction(match)}
+                              type="button"
+                            >
+                              {predictionLocked ? "Spá vistuð" : "Vista spá"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          )}
         </section>
       </div>
     </main>
