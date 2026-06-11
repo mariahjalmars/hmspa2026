@@ -37,9 +37,11 @@ Example: predicting `2-1` when the result is `3-2` gives 4 points.
 3. Add your Supabase project values to `.env.local`:
 
    ```bash
-   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
    ```
+
+   Use the project base URL, not the REST endpoint. For example, if Supabase shows a URL ending in `/rest/v1/`, remove that part.
 
 4. In Supabase, open the SQL editor and run:
 
@@ -68,6 +70,8 @@ Example: predicting `2-1` when the result is `3-2` gives 4 points.
 The MVP intentionally has simple open Row Level Security policies because this is a private game and authentication is not built yet. Before making it public, add proper authentication and restrict admin writes.
 
 The avatar bucket is named `avatars` and is public so uploaded profile pictures can be shown in the leaderboard.
+
+The app reads Supabase values only from environment variables in `.env.local`. No Supabase URL or key should be committed to the repository.
 
 ## Demo mode
 
