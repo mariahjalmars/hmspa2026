@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "World Cup spá - Sand Fjölskyldan",
-  description: "Spáleikur Sand fjölskyldunnar fyrir World Cup 2026."
+  description: "World Cup 2026 spáleikur Sand fjölskyldunnar."
 };
 
 export default function RootLayout({
