@@ -36,12 +36,14 @@ async function seedDemoMatches() {
 }
 
 function kickoffLabel(value: string) {
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat("is-IS", {
     weekday: "short",
     month: "short",
     day: "numeric",
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Atlantic/Reykjavik"
   }).format(new Date(value));
 }
 
@@ -371,7 +373,9 @@ export default function Home() {
                   <article key={match.id} className="rounded-lg border-2 border-ink bg-[#f8fbff] p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-xs font-black uppercase tracking-wide text-ocean">{kickoffLabel(match.kickoff_time)}</p>
+                        <p className="text-xs font-black uppercase tracking-wide text-ocean">
+                          {kickoffLabel(match.kickoff_time)} - Iceland time
+                        </p>
                         <h3 className="mt-1 text-xl font-black">
                           {match.home_team} vs {match.away_team}
                         </h3>
