@@ -156,10 +156,11 @@ export default function AdminPage() {
       setMessage("Connect Supabase before recalculating points.");
       return;
     }
+const client = supabase;
 
     setBusy(true);
     try {
-      const { data: predictionData, error: predictionError } = await supabase.from("predictions").select("*");
+const { data: predictionData, error: predictionError } = await client.from("predictions").select("*");
       if (predictionError) {
         throw predictionError;
       }
@@ -179,7 +180,7 @@ export default function AdminPage() {
       });
 
       if (updates.length) {
-        const { error } = await supabase.from("predictions").upsert(updates);
+        const { error } = awaitclient.from("predictions").upsert(updates);
         if (error) {
           throw error;
         }
@@ -192,7 +193,8 @@ export default function AdminPage() {
 
       await Promise.all(
         Object.entries(totals).map(([playerId, totalPoints]) =>
-          supabase.from("players").update({ total_points: totalPoints }).eq("id", playerId)
+         client.from("players")
+.update({ total_points: totalPoints }).eq("id", playerId)
         )
       );
 
