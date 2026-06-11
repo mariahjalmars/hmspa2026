@@ -31,6 +31,15 @@ create table if not exists public.predictions (
   unique (player_id, match_id)
 );
 
+create index if not exists matches_kickoff_time_idx
+on public.matches (kickoff_time);
+
+create index if not exists predictions_player_id_idx
+on public.predictions (player_id);
+
+create index if not exists predictions_match_id_idx
+on public.predictions (match_id);
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -69,6 +78,12 @@ using (true);
 drop policy if exists "Anyone can create players" on public.players;
 create policy "Anyone can create players"
 on public.players for insert
+with check (true);
+
+drop policy if exists "Anyone can update players for MVP" on public.players;
+create policy "Anyone can update players for MVP"
+on public.players for update
+using (true)
 with check (true);
 
 drop policy if exists "Anyone can read matches" on public.matches;
@@ -110,4 +125,10 @@ using (bucket_id = 'avatars');
 drop policy if exists "Anyone can upload avatars" on storage.objects;
 create policy "Anyone can upload avatars"
 on storage.objects for insert
+with check (bucket_id = 'avatars');
+
+drop policy if exists "Anyone can update avatars" on storage.objects;
+create policy "Anyone can update avatars"
+on storage.objects for update
+using (bucket_id = 'avatars')
 with check (bucket_id = 'avatars');
