@@ -369,10 +369,10 @@ export default function Home() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 rounded-lg border-4 border-ink bg-white p-5 shadow-soft sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-wide text-berry">Private World Cup 2026</p>
-          <h1 className="mt-1 text-4xl font-black text-ink sm:text-5xl">HM Spaa</h1>
+          <p className="text-sm font-black uppercase tracking-wide text-berry">World Cup 2026</p>
+          <h1 className="mt-1 text-4xl font-black text-ink sm:text-5xl">World Cup spá - Sand Fjölskyldan</h1>
           <p className="mt-2 max-w-xl text-sm font-semibold text-slate-700">
-            Pick scores, lock them before kickoff, and climb the family leaderboard.
+            Veldu úrslit, vistaðu spárnar fyrir leik og fylgstu með stöðunni.
           </p>
         </div>
         <a
