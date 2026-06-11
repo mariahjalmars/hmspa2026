@@ -201,16 +201,22 @@ export default function Home() {
       .sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
   }, [players, predictions]);
 
-  const selectedPredictions = useMemo(() => {
+  const visiblePredictions = useMemo(() => {
     return predictions
-      .filter((prediction) => prediction.player_id === selectedPlayerId)
+      .filter((prediction) => !selectedPlayerId || prediction.player_id === selectedPlayerId)
       .map((prediction) => ({
         prediction,
-        match: matches.find((match) => match.id === prediction.match_id)
+        match: matches.find((match) => match.id === prediction.match_id),
+        player: players.find((player) => player.id === prediction.player_id)
       }))
-      .filter((item): item is { prediction: Prediction; match: Match } => Boolean(item.match))
-      .sort((a, b) => new Date(a.match.kickoff_time).getTime() - new Date(b.match.kickoff_time).getTime());
-  }, [matches, predictions, selectedPlayerId]);
+      .filter((item): item is { prediction: Prediction; match: Match; player: Player } =>
+        Boolean(item.match && item.player)
+      )
+      .sort((a, b) => {
+        const timeDiff = new Date(a.match.kickoff_time).getTime() - new Date(b.match.kickoff_time).getTime();
+        return timeDiff || a.player.name.localeCompare(b.player.name);
+      });
+  }, [matches, players, predictions, selectedPlayerId]);
 
   useEffect(() => {
     async function loadGame() {
@@ -233,7 +239,6 @@ export default function Home() {
 
       if (playersResult.data) {
         setPlayers(playersResult.data);
-        setSelectedPlayerId(playersResult.data[0]?.id ?? "");
       }
 
       if (matchesResult.data) {
@@ -441,7 +446,7 @@ export default function Home() {
                 onChange={(event) => setSelectedPlayerId(event.target.value)}
                 value={selectedPlayerId}
               >
-                <option value="">Choose player</option>
+                <option value="">Allir leikmenn</option>
                 {players.map((player) => (
                   <option key={player.id} value={player.id}>
                     {player.name}
@@ -484,7 +489,13 @@ export default function Home() {
             <div>
               <h2 className="text-2xl font-black">Matches</h2>
               <p className="text-sm font-semibold text-slate-600">
-                {selectedPlayer ? `Predictions for ${selectedPlayer.name}` : "Choose a player to start predicting."}
+                {activeView === "predictions"
+                  ? selectedPlayer
+                    ? `Spár hjá ${selectedPlayer.name}`
+                    : "Spár hjá öllum leikmönnum"
+                  : selectedPlayer
+                    ? `Predictions for ${selectedPlayer.name}`
+                    : "Veldu leikmann til að vista spá."}
               </p>
             </div>
             <div className="grid grid-cols-2 rounded-lg border-2 border-ink bg-slate-100 p-1 text-sm font-black">
@@ -507,21 +518,18 @@ export default function Home() {
 
           {activeView === "predictions" ? (
             <div className="mt-4 grid gap-3">
-              {!selectedPlayerId ? (
+              {visiblePredictions.length === 0 ? (
                 <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
-                  Veldu leikmann til að sjá vistaðar spár.
-                </div>
-              ) : selectedPredictions.length === 0 ? (
-                <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
-                  Engar spár vistaðar fyrir þennan leikmann ennþá.
+                  Engar spár hafa verið vistaðar ennþá.
                 </div>
               ) : (
-                selectedPredictions.map(({ match, prediction }) => (
+                visiblePredictions.map(({ match, player, prediction }) => (
                   <article key={prediction.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-xs font-black uppercase tracking-wide text-ocean">{groupLabel(match)}</p>
                         <p className="mt-1 text-sm font-semibold text-slate-600">{kickoffLabel(match.kickoff_time)}</p>
+                        <p className="mt-1 text-sm font-black text-ink">{player.name}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-base font-black text-ink sm:text-lg">
                         <span>{match.home_team}</span>
