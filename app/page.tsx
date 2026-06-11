@@ -133,8 +133,14 @@ function kickoffLabel(value: string) {
   }).format(new Date(value));
 }
 
-function groupLabel(matchId: string) {
-  const group = matchId.match(/^group-([a-l])-/)?.[1]?.toUpperCase();
+function groupLabel(match: Match) {
+  const officialMatch = demoMatches.find(
+    (item) =>
+      item.home_team === match.home_team &&
+      item.away_team === match.away_team &&
+      item.kickoff_time === match.kickoff_time
+  );
+  const group = officialMatch?.id.match(/^group-([a-l])-/)?.[1]?.toUpperCase();
   return group ? `RIÐILL ${group}` : "RIÐILL";
 }
 
@@ -152,15 +158,15 @@ function TeamBadge({ align = "left", name }: { align?: "left" | "right"; name: s
   const isRight = align === "right";
 
   return (
-    <span className={`flex min-w-0 items-center gap-4 ${isRight ? "justify-end" : "justify-start"}`}>
+    <span className={`flex min-w-0 items-center gap-3 ${isRight ? "justify-end text-right" : "justify-start"}`}>
       {!isRight && (
-        <span className="h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-300 bg-white shadow-soft">
+        <span className="h-10 w-14 shrink-0 overflow-hidden rounded-md border border-slate-300 bg-white shadow-soft sm:h-11 sm:w-16">
           {code ? <span className={`fi fi-${code} block h-full w-full`} /> : null}
         </span>
       )}
-      <span className="min-w-0 truncate text-2xl font-black text-ink sm:text-3xl">{name}</span>
+      <span className="min-w-0 text-xl font-black leading-tight text-ink sm:text-2xl">{name}</span>
       {isRight && (
-        <span className="h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-300 bg-white shadow-soft">
+        <span className="h-10 w-14 shrink-0 overflow-hidden rounded-md border border-slate-300 bg-white shadow-soft sm:h-11 sm:w-16">
           {code ? <span className={`fi fi-${code} block h-full w-full`} /> : null}
         </span>
       )}
@@ -473,7 +479,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-5">
+          <div className="mt-4 grid gap-4">
             {matches.length === 0 ? (
               <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
                 No matches have been seeded yet.
@@ -484,27 +490,29 @@ export default function Home() {
                 const draft = drafts[match.id] ?? { home_score: "", away_score: "" };
 
                 return (
-                  <article key={match.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
-                    <div className="flex flex-col gap-2 border-b border-slate-200 bg-[#f8f5ec] px-5 py-3 text-slate-700 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm font-black uppercase tracking-wide">{groupLabel(match.id)}</p>
-                      <p className="text-sm font-semibold sm:text-base">{kickoffLabel(match.kickoff_time)}</p>
+                  <article key={match.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
+                    <div className="flex flex-col gap-1 border-b border-slate-200 bg-[#f8f5ec] px-4 py-2.5 text-slate-700 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-black uppercase tracking-wide">{groupLabel(match)}</p>
+                      <p className="text-sm font-semibold">{kickoffLabel(match.kickoff_time)}</p>
                     </div>
 
-                    <div className="p-5">
-                      <div className="grid grid-cols-1 items-center gap-5 sm:grid-cols-[1fr_auto_1fr]">
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
                         <TeamBadge name={match.home_team} />
-                        <div className="mx-auto text-2xl font-black text-slate-600 sm:text-3xl">VS</div>
+                        <div className="mx-auto text-xl font-black text-slate-500 sm:text-2xl">VS</div>
                         <TeamBadge align="right" name={match.away_team} />
                       </div>
 
-                      <div className="mt-5 border-t border-slate-200 pt-5">
+                      <div className="mt-4 border-t border-slate-200 pt-4">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                          <div className="flex items-end gap-4">
-                            <label className="text-xs font-black uppercase tracking-wide text-slate-600">
-                              {match.home_team}
+                          <div className="grid grid-cols-[76px_auto_76px] items-end gap-3">
+                            <div>
+                              <span className="mb-2 block min-h-8 text-xs font-black uppercase leading-tight tracking-wide text-slate-600">
+                                {match.home_team}
+                              </span>
                               <input
                                 aria-label={`${match.home_team} score`}
-                                className="mt-2 h-14 w-14 rounded-xl border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-2xl font-black text-ink outline-none focus:border-grass"
+                                className="h-12 w-16 rounded-lg border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-xl font-black text-ink outline-none focus:border-grass"
                                 disabled={locked || !selectedPlayerId}
                                 min={0}
                                 onChange={(event) =>
@@ -516,13 +524,15 @@ export default function Home() {
                                 type="number"
                                 value={draft.home_score}
                               />
-                            </label>
-                            <span className="pb-4 text-xl font-black text-slate-700">-</span>
-                            <label className="text-xs font-black uppercase tracking-wide text-slate-600">
-                              {match.away_team}
+                            </div>
+                            <span className="pb-3 text-lg font-black text-slate-700">-</span>
+                            <div>
+                              <span className="mb-2 block min-h-8 text-xs font-black uppercase leading-tight tracking-wide text-slate-600">
+                                {match.away_team}
+                              </span>
                               <input
                                 aria-label={`${match.away_team} score`}
-                                className="mt-2 h-14 w-14 rounded-xl border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-2xl font-black text-ink outline-none focus:border-grass"
+                                className="h-12 w-16 rounded-lg border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-xl font-black text-ink outline-none focus:border-grass"
                                 disabled={locked || !selectedPlayerId}
                                 min={0}
                                 onChange={(event) =>
@@ -534,11 +544,11 @@ export default function Home() {
                                 type="number"
                                 value={draft.away_score}
                               />
-                            </label>
+                            </div>
                           </div>
 
                           <button
-                            className="h-14 rounded-xl bg-grass px-7 text-lg font-black text-white shadow-soft disabled:cursor-not-allowed disabled:bg-slate-400"
+                            className="h-11 rounded-lg bg-grass px-5 text-base font-black text-white shadow-soft disabled:cursor-not-allowed disabled:bg-slate-400"
                             disabled={busy || locked || !selectedPlayerId}
                             onClick={() => savePrediction(match)}
                             type="button"
