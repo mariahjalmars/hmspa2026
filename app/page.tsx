@@ -12,7 +12,6 @@ type PredictionDraft = {
 };
 
 const avatarBucket = "avatars";
-const flagBaseUrl = "https://flagcdn.com/w80";
 const officialScheduleKey = demoMatches.map((match) => `${match.home_team}|${match.away_team}|${match.kickoff_time}`).join("~~");
 
 const teamFlagCodes: Record<string, string> = {
@@ -149,14 +148,11 @@ function TeamBadge({ name }: { name: string }) {
   return (
     <span className="flex min-w-0 items-center gap-3">
       {code ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          alt=""
-          className="h-7 w-10 shrink-0 rounded-sm border border-slate-200 object-cover shadow-sm"
-          src={`${flagBaseUrl}/${code}.png`}
-        />
+        <span className="h-7 w-10 shrink-0 overflow-hidden rounded-sm border border-slate-300 bg-white shadow-sm">
+          <span className={`fi fi-${code} block h-full w-full`} />
+        </span>
       ) : (
-        <span className="flex h-7 w-10 shrink-0 items-center justify-center rounded-sm border border-slate-200 bg-slate-100 text-xs font-black">
+        <span className="flex h-7 w-10 shrink-0 items-center justify-center rounded-sm border border-slate-300 bg-slate-100 text-xs font-black">
           ?
         </span>
       )}
@@ -382,7 +378,7 @@ export default function Home() {
 
       <section className="rounded-lg border-4 border-ink bg-sun p-4 text-sm font-black text-ink">{message}</section>
 
-      <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+      <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
         <aside className="flex flex-col gap-5">
           <section className="rounded-lg border-4 border-ink bg-white p-4 shadow-soft">
             <h2 className="text-2xl font-black">Player</h2>
@@ -470,7 +466,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-2">
             {matches.length === 0 ? (
               <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
                 No matches have been seeded yet.
@@ -481,36 +477,28 @@ export default function Home() {
                 const draft = drafts[match.id] ?? { home_score: "", away_score: "" };
 
                 return (
-                  <article key={match.id} className="rounded-lg border-2 border-ink bg-[#f8fbff] p-3 shadow-soft">
-                    <div className="grid gap-3 lg:grid-cols-[155px_1fr_210px_auto] lg:items-center">
+                  <article key={match.id} className="rounded-md border-2 border-ink bg-white p-3">
+                    <div className="grid gap-3 lg:grid-cols-[135px_minmax(0,1fr)_190px_78px] lg:items-center">
                       <div>
                         <p className="text-xs font-black uppercase tracking-wide text-ocean">
                           {kickoffLabel(match.kickoff_time)}
                         </p>
                         <p className="text-xs font-semibold text-slate-500">Iceland time</p>
-                        <p className="mt-1 text-xs font-black text-slate-700">
-                          {match.status === "finished" && match.home_score !== null && match.away_score !== null
-                            ? `Final: ${match.home_score}-${match.away_score}`
-                            : locked
-                              ? "Locked"
-                              : "Open"}
-                        </p>
                       </div>
 
-                      <div className="grid gap-2">
-                        <div className="rounded-md bg-white px-3 py-2 text-base font-black shadow-soft">
+                      <div className="grid gap-1.5">
+                        <div className="rounded-md bg-slate-50 px-3 py-2 text-base font-black">
                           <TeamBadge name={match.home_team} />
                         </div>
-                        <div className="rounded-md bg-white px-3 py-2 text-base font-black shadow-soft">
+                        <div className="rounded-md bg-slate-50 px-3 py-2 text-base font-black">
                           <TeamBadge name={match.away_team} />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                        <label className="sr-only">{match.home_team}</label>
                         <input
                           aria-label={`${match.home_team} score`}
-                          className="h-12 w-full rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
+                          className="h-11 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
                           disabled={locked || !selectedPlayerId}
                           min={0}
                           onChange={(event) =>
@@ -523,11 +511,10 @@ export default function Home() {
                           type="number"
                           value={draft.home_score}
                         />
-                        <span className="text-xl font-black">-</span>
-                        <label className="sr-only">{match.away_team}</label>
+                        <span className="text-lg font-black">-</span>
                         <input
                           aria-label={`${match.away_team} score`}
-                          className="h-12 w-full rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
+                          className="h-11 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
                           disabled={locked || !selectedPlayerId}
                           min={0}
                           onChange={(event) =>
@@ -543,7 +530,7 @@ export default function Home() {
                       </div>
 
                       <button
-                        className="h-11 rounded-md bg-grass px-4 font-black text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                        className="h-10 rounded-md bg-grass px-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-400"
                         disabled={busy || locked || !selectedPlayerId}
                         onClick={() => savePrediction(match)}
                         type="button"
