@@ -16,6 +16,32 @@ type MatchDraft = {
   away_score: string;
 };
 
+type PlayerIdRow = {
+  id: string;
+};
+
+async function seedDemoMatches() {
+  if (!supabase) {
+    return { data: null, error: null };
+  }
+
+  return supabase
+    .from("matches")
+    .upsert(
+      demoMatches.map(({ home_team, away_team, kickoff_time, status, home_score, away_score }) => ({
+        home_team,
+        away_team,
+        kickoff_time,
+        status,
+        home_score,
+        away_score
+      })),
+      { onConflict: "home_team,away_team,kickoff_time" }
+    )
+    .select()
+    .order("kickoff_time", { ascending: true });
+}
+
 function toLocalInputValue(value: string) {
   const date = new Date(value);
   const offset = date.getTimezoneOffset() * 60000;
@@ -58,12 +84,23 @@ export default function AdminPage() {
         return;
       }
 
-      const nextMatches = data.length ? data : [];
+      if (!data.length) {
+        const seededMatches = await seedDemoMatches();
+        if (seededMatches.error) {
+          setMessage(seededMatches.error.message);
+          return;
+        }
+
+        const nextMatches = seededMatches.data ?? [];
+        setMatches(nextMatches);
+        setDrafts(Object.fromEntries(nextMatches.map((match) => [match.id, draftFromMatch(match)])));
+        setMessage("Demo matches added automatically.");
+        return;
+      }
+
+      const nextMatches = data;
       setMatches(nextMatches);
       setDrafts(Object.fromEntries(nextMatches.map((match) => [match.id, draftFromMatch(match)])));
-      if (!data.length) {
-        setMessage("No matches yet. Seed demo matches to get started.");
-      }
     }
 
     loadMatches();
@@ -77,27 +114,15 @@ export default function AdminPage() {
 
     setBusy(true);
     try {
-      const { data, error } = await supabase
-        .from("matches")
-        .insert(
-          demoMatches.map(({ home_team, away_team, kickoff_time, status, home_score, away_score }) => ({
-            home_team,
-            away_team,
-            kickoff_time,
-            status,
-            home_score,
-            away_score
-          }))
-        )
-        .select()
-        .order("kickoff_time", { ascending: true });
+      const { data, error } = await seedDemoMatches();
 
       if (error) {
         throw error;
       }
-      setMatches(data);
-      setDrafts(Object.fromEntries(data.map((match) => [match.id, draftFromMatch(match)])));
-      setMessage("Demo matches added.");
+      const nextMatches = data ?? [];
+      setMatches(nextMatches);
+      setDrafts(Object.fromEntries(nextMatches.map((match) => [match.id, draftFromMatch(match)])));
+      setMessage("Demo matches synced.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not seed matches.");
     } finally {
@@ -112,6 +137,15 @@ export default function AdminPage() {
     }
 
     const draft = drafts[match.id];
+    if (!draft.home_team.trim() || !draft.away_team.trim()) {
+      setMessage("Both teams need names.");
+      return;
+    }
+    if (!draft.kickoff_time) {
+      setMessage("Kickoff time is required.");
+      return;
+    }
+
     const homeScore = draft.home_score === "" ? null : Number(draft.home_score);
     const awayScore = draft.away_score === "" ? null : Number(draft.away_score);
     if (
@@ -119,6 +153,10 @@ export default function AdminPage() {
       (awayScore !== null && (!Number.isInteger(awayScore) || awayScore < 0))
     ) {
       setMessage("Scores must be whole numbers.");
+      return;
+    }
+    if (draft.status === "finished" && (homeScore === null || awayScore === null)) {
+      setMessage("Finished matches need both final scores.");
       return;
     }
 
@@ -156,17 +194,32 @@ export default function AdminPage() {
       setMessage("Connect Supabase before recalculating points.");
       return;
     }
-const client = supabase;
+    const client = supabase;
 
     setBusy(true);
     try {
-const { data: predictionData, error: predictionError } = await client.from("predictions").select("*");
+      const [
+        { data: matchData, error: matchError },
+        { data: predictionData, error: predictionError },
+        { data: playerData, error: playerError }
+      ] = await Promise.all([
+        client.from("matches").select("*"),
+        client.from("predictions").select("*"),
+        client.from("players").select("id")
+      ]);
+
+      if (matchError) {
+        throw matchError;
+      }
       if (predictionError) {
         throw predictionError;
       }
+      if (playerError) {
+        throw playerError;
+      }
 
       const updates = (predictionData as Prediction[]).map((prediction) => {
-        const match = matches.find((item) => item.id === prediction.match_id);
+        const match = (matchData as Match[]).find((item) => item.id === prediction.match_id);
         return {
           id: prediction.id,
           player_id: prediction.player_id,
@@ -180,7 +233,7 @@ const { data: predictionData, error: predictionError } = await client.from("pred
       });
 
       if (updates.length) {
-        const { error } = awaitclient.from("predictions").upsert(updates);
+        const { error } = await client.from("predictions").upsert(updates);
         if (error) {
           throw error;
         }
@@ -191,13 +244,19 @@ const { data: predictionData, error: predictionError } = await client.from("pred
         return acc;
       }, {});
 
-      await Promise.all(
-        Object.entries(totals).map(([playerId, totalPoints]) =>
-         client.from("players")
-.update({ total_points: totalPoints }).eq("id", playerId)
+      const playerUpdates = await Promise.all(
+        (playerData as PlayerIdRow[]).map((player) =>
+          client.from("players").update({ total_points: totals[player.id] ?? 0 }).eq("id", player.id)
         )
       );
+      const playerUpdateError = playerUpdates.find((result) => result.error)?.error;
+      if (playerUpdateError) {
+        throw playerUpdateError;
+      }
 
+      const sortedMatches = (matchData as Match[]).sort((a, b) => a.kickoff_time.localeCompare(b.kickoff_time));
+      setMatches(sortedMatches);
+      setDrafts(Object.fromEntries(sortedMatches.map((match) => [match.id, draftFromMatch(match)])));
       setMessage(`Recalculated ${updates.length} predictions.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not recalculate points.");
