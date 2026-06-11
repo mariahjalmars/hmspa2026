@@ -1,0 +1,6 @@
+node_modules
+.next
+out
+.env*.local
+*.tsbuildinfo
+hmspa2026.zip
