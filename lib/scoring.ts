@@ -9,21 +9,11 @@ export function calculatePoints(
   }
 
   if (predictedHome === actualHome && predictedAway === actualAway) {
-    return 5;
+    return 4;
   }
 
-  const predictedDiff = predictedHome - predictedAway;
-  const actualDiff = actualHome - actualAway;
-  const predictedOutcome = Math.sign(predictedDiff);
-  const actualOutcome = Math.sign(actualDiff);
+  const predictedOutcome = Math.sign(predictedHome - predictedAway);
+  const actualOutcome = Math.sign(actualHome - actualAway);
 
-  let points = 0;
-  if (predictedOutcome === actualOutcome) {
-    points += 3;
-  }
-  if (predictedDiff === actualDiff) {
-    points += 1;
-  }
-
-  return points;
+  return predictedOutcome === actualOutcome ? 1 : 0;
 }
