@@ -12,64 +12,57 @@ type PredictionDraft = {
 };
 
 const avatarBucket = "avatars";
+const flagBaseUrl = "https://flagcdn.com/w80";
 
-function flag(code: string) {
-  return code
-    .toUpperCase()
-    .split("")
-    .map((letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
-    .join("");
-}
-
-const teamFlags: Record<string, string> = {
-  Algeria: flag("DZ"),
-  Argentina: flag("AR"),
-  Australia: flag("AU"),
-  Austria: flag("AT"),
-  Belgium: flag("BE"),
-  "Bosnia and Herzegovina": flag("BA"),
-  Brazil: flag("BR"),
-  Canada: flag("CA"),
-  "Cape Verde": flag("CV"),
-  Colombia: flag("CO"),
-  Croatia: flag("HR"),
-  Curacao: flag("CW"),
-  Czechia: flag("CZ"),
-  "DR Congo": flag("CD"),
-  Ecuador: flag("EC"),
-  Egypt: flag("EG"),
-  England: "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}",
-  France: flag("FR"),
-  Germany: flag("DE"),
-  Ghana: flag("GH"),
-  Haiti: flag("HT"),
-  Iran: flag("IR"),
-  Iraq: flag("IQ"),
-  "Ivory Coast": flag("CI"),
-  Japan: flag("JP"),
-  Jordan: flag("JO"),
-  "Korea Republic": flag("KR"),
-  Mexico: flag("MX"),
-  Morocco: flag("MA"),
-  Netherlands: flag("NL"),
-  "New Zealand": flag("NZ"),
-  Norway: flag("NO"),
-  Panama: flag("PA"),
-  Paraguay: flag("PY"),
-  Portugal: flag("PT"),
-  Qatar: flag("QA"),
-  "Saudi Arabia": flag("SA"),
-  Scotland: "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}",
-  Senegal: flag("SN"),
-  "South Africa": flag("ZA"),
-  Spain: flag("ES"),
-  Sweden: flag("SE"),
-  Switzerland: flag("CH"),
-  Tunisia: flag("TN"),
-  Turkiye: flag("TR"),
-  "United States": flag("US"),
-  Uruguay: flag("UY"),
-  Uzbekistan: flag("UZ")
+const teamFlagCodes: Record<string, string> = {
+  Algeria: "dz",
+  Argentina: "ar",
+  Australia: "au",
+  Austria: "at",
+  Belgium: "be",
+  "Bosnia and Herzegovina": "ba",
+  Brazil: "br",
+  Canada: "ca",
+  "Cape Verde": "cv",
+  Colombia: "co",
+  Croatia: "hr",
+  Curacao: "cw",
+  Czechia: "cz",
+  "DR Congo": "cd",
+  Ecuador: "ec",
+  Egypt: "eg",
+  England: "gb-eng",
+  France: "fr",
+  Germany: "de",
+  Ghana: "gh",
+  Haiti: "ht",
+  Iran: "ir",
+  Iraq: "iq",
+  "Ivory Coast": "ci",
+  Japan: "jp",
+  Jordan: "jo",
+  "Korea Republic": "kr",
+  Mexico: "mx",
+  Morocco: "ma",
+  Netherlands: "nl",
+  "New Zealand": "nz",
+  Norway: "no",
+  Panama: "pa",
+  Paraguay: "py",
+  Portugal: "pt",
+  Qatar: "qa",
+  "Saudi Arabia": "sa",
+  Scotland: "gb-sct",
+  Senegal: "sn",
+  "South Africa": "za",
+  Spain: "es",
+  Sweden: "se",
+  Switzerland: "ch",
+  Tunisia: "tn",
+  Turkiye: "tr",
+  "United States": "us",
+  Uruguay: "uy",
+  Uzbekistan: "uz"
 };
 
 async function seedDemoMatches() {
@@ -116,11 +109,22 @@ function initials(name: string) {
 }
 
 function TeamBadge({ name }: { name: string }) {
+  const code = teamFlagCodes[name];
+
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      <span className="text-3xl leading-none" aria-hidden="true">
-        {teamFlags[name] ?? "\u{1F3F3}\uFE0F"}
-      </span>
+    <span className="flex min-w-0 items-center gap-3">
+      {code ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt=""
+          className="h-7 w-10 shrink-0 rounded-sm border border-slate-200 object-cover shadow-sm"
+          src={`${flagBaseUrl}/${code}.png`}
+        />
+      ) : (
+        <span className="flex h-7 w-10 shrink-0 items-center justify-center rounded-sm border border-slate-200 bg-slate-100 text-xs font-black">
+          ?
+        </span>
+      )}
       <span className="min-w-0 truncate">{name}</span>
     </span>
   );
@@ -429,7 +433,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4">
+          <div className="mt-4 grid gap-3">
             {matches.length === 0 ? (
               <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
                 No matches have been seeded yet.
@@ -440,79 +444,76 @@ export default function Home() {
                 const draft = drafts[match.id] ?? { home_score: "", away_score: "" };
 
                 return (
-                  <article key={match.id} className="overflow-hidden rounded-lg border-2 border-ink bg-[#f8fbff]">
-                    <div className="border-b-2 border-ink bg-white px-4 py-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-ocean">
-                        {kickoffLabel(match.kickoff_time)} - Iceland time
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-600">
-                        {match.status === "finished" && match.home_score !== null && match.away_score !== null
-                          ? `Final score: ${match.home_score}-${match.away_score}`
-                          : locked
-                            ? "Locked"
-                            : "Open for predictions"}
-                      </p>
-                    </div>
-                    <div className="grid gap-4 p-4">
-                      <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
-                        <div className="min-w-0 rounded-md bg-white p-3 shadow-soft">
-                          <p className="text-lg font-black">
-                            <TeamBadge name={match.home_team} />
-                          </p>
+                  <article key={match.id} className="rounded-lg border-2 border-ink bg-[#f8fbff] p-3 shadow-soft">
+                    <div className="grid gap-3 lg:grid-cols-[155px_1fr_210px_auto] lg:items-center">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide text-ocean">
+                          {kickoffLabel(match.kickoff_time)}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-500">islenskur timi</p>
+                        <p className="mt-1 text-xs font-black text-slate-700">
+                          {match.status === "finished" && match.home_score !== null && match.away_score !== null
+                            ? `Final: ${match.home_score}-${match.away_score}`
+                            : locked
+                              ? "Locked"
+                              : "Open"}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <div className="rounded-md bg-white px-3 py-2 text-base font-black shadow-soft">
+                          <TeamBadge name={match.home_team} />
                         </div>
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-ink bg-sun text-sm font-black">
-                          VS
-                        </div>
-                        <div className="min-w-0 rounded-md bg-white p-3 shadow-soft">
-                          <p className="text-lg font-black">
-                            <TeamBadge name={match.away_team} />
-                          </p>
+                        <div className="rounded-md bg-white px-3 py-2 text-base font-black shadow-soft">
+                          <TeamBadge name={match.away_team} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-                        <label className="text-xs font-black">
-                          {match.home_team}
-                          <input
-                            className="mt-1 h-14 w-full rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
-                            disabled={locked || !selectedPlayerId}
-                            min={0}
-                            onChange={(event) =>
-                              setDrafts((current) => ({
-                                ...current,
-                                [match.id]: { ...draft, home_score: event.target.value }
-                              }))
-                            }
-                            type="number"
-                            value={draft.home_score}
-                          />
-                        </label>
-                        <span className="pb-4 text-xl font-black">-</span>
-                        <label className="text-xs font-black">
-                          {match.away_team}
-                          <input
-                            className="mt-1 h-14 w-full rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
-                            disabled={locked || !selectedPlayerId}
-                            min={0}
-                            onChange={(event) =>
-                              setDrafts((current) => ({
-                                ...current,
-                                [match.id]: { ...draft, away_score: event.target.value }
-                              }))
-                            }
-                            type="number"
-                            value={draft.away_score}
-                          />
-                        </label>
+
+                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                        <label className="sr-only">{match.home_team}</label>
+                        <input
+                          aria-label={`${match.home_team} score`}
+                          className="h-12 w-full rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
+                          disabled={locked || !selectedPlayerId}
+                          min={0}
+                          onChange={(event) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [match.id]: { ...draft, home_score: event.target.value }
+                            }))
+                          }
+                          placeholder="0"
+                          type="number"
+                          value={draft.home_score}
+                        />
+                        <span className="text-xl font-black">-</span>
+                        <label className="sr-only">{match.away_team}</label>
+                        <input
+                          aria-label={`${match.away_team} score`}
+                          className="h-12 w-full rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
+                          disabled={locked || !selectedPlayerId}
+                          min={0}
+                          onChange={(event) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [match.id]: { ...draft, away_score: event.target.value }
+                            }))
+                          }
+                          placeholder="0"
+                          type="number"
+                          value={draft.away_score}
+                        />
                       </div>
+
+                      <button
+                        className="h-11 rounded-md bg-grass px-4 font-black text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                        disabled={busy || locked || !selectedPlayerId}
+                        onClick={() => savePrediction(match)}
+                        type="button"
+                      >
+                        Save
+                      </button>
                     </div>
-                    <button
-                      className="mx-4 mb-4 h-11 w-[calc(100%-2rem)] rounded-md bg-grass px-4 font-black text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto"
-                      disabled={busy || locked || !selectedPlayerId}
-                      onClick={() => savePrediction(match)}
-                      type="button"
-                    >
-                      Save prediction
-                    </button>
                   </article>
                 );
               })
