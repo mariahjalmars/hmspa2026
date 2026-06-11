@@ -13,6 +13,65 @@ type PredictionDraft = {
 
 const avatarBucket = "avatars";
 
+function flag(code: string) {
+  return code
+    .toUpperCase()
+    .split("")
+    .map((letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
+    .join("");
+}
+
+const teamFlags: Record<string, string> = {
+  Algeria: flag("DZ"),
+  Argentina: flag("AR"),
+  Australia: flag("AU"),
+  Austria: flag("AT"),
+  Belgium: flag("BE"),
+  "Bosnia and Herzegovina": flag("BA"),
+  Brazil: flag("BR"),
+  Canada: flag("CA"),
+  "Cape Verde": flag("CV"),
+  Colombia: flag("CO"),
+  Croatia: flag("HR"),
+  Curacao: flag("CW"),
+  Czechia: flag("CZ"),
+  "DR Congo": flag("CD"),
+  Ecuador: flag("EC"),
+  Egypt: flag("EG"),
+  England: "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}",
+  France: flag("FR"),
+  Germany: flag("DE"),
+  Ghana: flag("GH"),
+  Haiti: flag("HT"),
+  Iran: flag("IR"),
+  Iraq: flag("IQ"),
+  "Ivory Coast": flag("CI"),
+  Japan: flag("JP"),
+  Jordan: flag("JO"),
+  "Korea Republic": flag("KR"),
+  Mexico: flag("MX"),
+  Morocco: flag("MA"),
+  Netherlands: flag("NL"),
+  "New Zealand": flag("NZ"),
+  Norway: flag("NO"),
+  Panama: flag("PA"),
+  Paraguay: flag("PY"),
+  Portugal: flag("PT"),
+  Qatar: flag("QA"),
+  "Saudi Arabia": flag("SA"),
+  Scotland: "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}",
+  Senegal: flag("SN"),
+  "South Africa": flag("ZA"),
+  Spain: flag("ES"),
+  Sweden: flag("SE"),
+  Switzerland: flag("CH"),
+  Tunisia: flag("TN"),
+  Turkiye: flag("TR"),
+  "United States": flag("US"),
+  Uruguay: flag("UY"),
+  Uzbekistan: flag("UZ")
+};
+
 async function seedDemoMatches() {
   if (!supabase) {
     return { data: null, error: null };
@@ -54,6 +113,17 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function TeamBadge({ name }: { name: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="text-3xl leading-none" aria-hidden="true">
+        {teamFlags[name] ?? "\u{1F3F3}\uFE0F"}
+      </span>
+      <span className="min-w-0 truncate">{name}</span>
+    </span>
+  );
 }
 
 export default function Home() {
@@ -370,28 +440,40 @@ export default function Home() {
                 const draft = drafts[match.id] ?? { home_score: "", away_score: "" };
 
                 return (
-                  <article key={match.id} className="rounded-lg border-2 border-ink bg-[#f8fbff] p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-wide text-ocean">
-                          {kickoffLabel(match.kickoff_time)} - Iceland time
-                        </p>
-                        <h3 className="mt-1 text-xl font-black">
-                          {match.home_team} vs {match.away_team}
-                        </h3>
-                        <p className="text-sm font-semibold text-slate-600">
-                          {match.status === "finished" && match.home_score !== null && match.away_score !== null
-                            ? `Final score: ${match.home_score}-${match.away_score}`
-                            : locked
-                              ? "Locked"
-                              : "Open for predictions"}
-                        </p>
+                  <article key={match.id} className="overflow-hidden rounded-lg border-2 border-ink bg-[#f8fbff]">
+                    <div className="border-b-2 border-ink bg-white px-4 py-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-ocean">
+                        {kickoffLabel(match.kickoff_time)} - Iceland time
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">
+                        {match.status === "finished" && match.home_score !== null && match.away_score !== null
+                          ? `Final score: ${match.home_score}-${match.away_score}`
+                          : locked
+                            ? "Locked"
+                            : "Open for predictions"}
+                      </p>
+                    </div>
+                    <div className="grid gap-4 p-4">
+                      <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                        <div className="min-w-0 rounded-md bg-white p-3 shadow-soft">
+                          <p className="text-lg font-black">
+                            <TeamBadge name={match.home_team} />
+                          </p>
+                        </div>
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2 border-ink bg-sun text-sm font-black">
+                          VS
+                        </div>
+                        <div className="min-w-0 rounded-md bg-white p-3 shadow-soft">
+                          <p className="text-lg font-black">
+                            <TeamBadge name={match.away_team} />
+                          </p>
+                        </div>
                       </div>
                       <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
                         <label className="text-xs font-black">
                           {match.home_team}
                           <input
-                            className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
+                            className="mt-1 h-14 w-full rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
                             disabled={locked || !selectedPlayerId}
                             min={0}
                             onChange={(event) =>
@@ -404,11 +486,11 @@ export default function Home() {
                             value={draft.home_score}
                           />
                         </label>
-                        <span className="pb-3 text-xl font-black">-</span>
+                        <span className="pb-4 text-xl font-black">-</span>
                         <label className="text-xs font-black">
                           {match.away_team}
                           <input
-                            className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
+                            className="mt-1 h-14 w-full rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
                             disabled={locked || !selectedPlayerId}
                             min={0}
                             onChange={(event) =>
@@ -424,7 +506,7 @@ export default function Home() {
                       </div>
                     </div>
                     <button
-                      className="mt-4 h-11 w-full rounded-md bg-grass px-4 font-black text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto"
+                      className="mx-4 mb-4 h-11 w-[calc(100%-2rem)] rounded-md bg-grass px-4 font-black text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto"
                       disabled={busy || locked || !selectedPlayerId}
                       onClick={() => savePrediction(match)}
                       type="button"
