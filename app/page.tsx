@@ -14,7 +14,14 @@ type PredictionDraft = {
 type ActiveView = "matches" | "predictions";
 
 const avatarBucket = "avatars";
-const officialScheduleKey = demoMatches.map((match) => `${match.home_team}|${match.away_team}|${match.kickoff_time}`).join("~~");
+
+function normalizedKickoff(value: string) {
+  return new Date(value).toISOString();
+}
+
+const officialScheduleKey = demoMatches
+  .map((match) => `${match.home_team}|${match.away_team}|${normalizedKickoff(match.kickoff_time)}`)
+  .join("~~");
 
 const teamFlagCodes: Record<string, string> = {
   Algeria: "dz",
@@ -90,33 +97,11 @@ async function seedDemoMatches() {
 }
 
 async function resetOfficialSchedule() {
-  if (!supabase) {
-    return { data: null, error: null };
-  }
-
-  const { error: predictionDeleteError } = await supabase
-    .from("predictions")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-
-  if (predictionDeleteError) {
-    return { data: null, error: predictionDeleteError };
-  }
-
-  const { error: matchDeleteError } = await supabase
-    .from("matches")
-    .delete()
-    .neq("id", "00000000-0000-0000-0000-000000000000");
-
-  if (matchDeleteError) {
-    return { data: null, error: matchDeleteError };
-  }
-
   return seedDemoMatches();
 }
 
 function scheduleKey(matches: Match[]) {
-  return matches.map((match) => `${match.home_team}|${match.away_team}|${match.kickoff_time}`).join("~~");
+  return matches.map((match) => `${match.home_team}|${match.away_team}|${normalizedKickoff(match.kickoff_time)}`).join("~~");
 }
 
 function hasOfficialSchedule(matches: Match[]) {
@@ -140,7 +125,7 @@ function groupLabel(match: Match) {
     (item) =>
       item.home_team === match.home_team &&
       item.away_team === match.away_team &&
-      item.kickoff_time === match.kickoff_time
+      normalizedKickoff(item.kickoff_time) === normalizedKickoff(match.kickoff_time)
   );
   const group = officialMatch?.id.match(/^group-([a-l])-/)?.[1]?.toUpperCase();
   return group ? `RIÐILL ${group}` : "RIÐILL";
@@ -242,21 +227,23 @@ export default function Home() {
       }
 
       if (matchesResult.data) {
-        if (!matchesResult.data.length || !hasOfficialSchedule(matchesResult.data)) {
+        if (!matchesResult.data.length) {
           setMessage("Updating match schedule...");
           const seededMatches = await resetOfficialSchedule();
           if (seededMatches.error) {
             setMessage(seededMatches.error.message);
             return;
           }
-          const nextMatches = seededMatches.data ?? [];
-          setMatches(nextMatches);
-          setPredictions([]);
+          setMatches(seededMatches.data ?? []);
+          setPredictions(predictionsResult.data ?? []);
           setMessage("Match schedule updated with the right teams.");
         } else {
           setMatches(matchesResult.data);
           if (predictionsResult.data) {
             setPredictions(predictionsResult.data);
+          }
+          if (!hasOfficialSchedule(matchesResult.data)) {
+            setMessage("Match schedule loaded. Use Admin to sync fixtures if needed.");
           }
         }
       }
