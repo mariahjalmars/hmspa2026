@@ -111,9 +111,26 @@ export default function AdminPage() {
       setMessage("Connect Supabase before seeding matches.");
       return;
     }
+    const client = supabase;
 
     setBusy(true);
     try {
+      const { error: predictionDeleteError } = await client
+        .from("predictions")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      if (predictionDeleteError) {
+        throw predictionDeleteError;
+      }
+
+      const { error: matchDeleteError } = await client
+        .from("matches")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      if (matchDeleteError) {
+        throw matchDeleteError;
+      }
+
       const { data, error } = await seedDemoMatches();
 
       if (error) {
@@ -122,9 +139,9 @@ export default function AdminPage() {
       const nextMatches = data ?? [];
       setMatches(nextMatches);
       setDrafts(Object.fromEntries(nextMatches.map((match) => [match.id, draftFromMatch(match)])));
-      setMessage("Demo matches synced.");
+      setMessage("Schedule reset with Iceland-time matches.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not seed matches.");
+      setMessage(error instanceof Error ? error.message : "Could not reset schedule.");
     } finally {
       setBusy(false);
     }
@@ -286,7 +303,7 @@ export default function AdminPage() {
           onClick={seedMatches}
           type="button"
         >
-          Seed demo matches
+          Reset schedule
         </button>
         <button
           className="h-12 rounded-md bg-berry px-4 font-black text-white disabled:bg-slate-400"
