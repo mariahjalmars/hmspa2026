@@ -25,4 +25,6 @@ export type Prediction = {
   home_score: number;
   away_score: number;
   points: number;
+  created_at?: string;
+  updated_at?: string;
 };
