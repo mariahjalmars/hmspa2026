@@ -198,8 +198,10 @@ export default function Home() {
         Boolean(item.match && item.player)
       )
       .sort((a, b) => {
-        const timeDiff = new Date(a.match.kickoff_time).getTime() - new Date(b.match.kickoff_time).getTime();
-        return timeDiff || a.player.name.localeCompare(b.player.name);
+        const createdDiff =
+          new Date(b.prediction.created_at ?? b.match.kickoff_time).getTime() -
+          new Date(a.prediction.created_at ?? a.match.kickoff_time).getTime();
+        return createdDiff || a.player.name.localeCompare(b.player.name);
       });
   }, [matches, players, predictions, selectedPlayerId]);
 
