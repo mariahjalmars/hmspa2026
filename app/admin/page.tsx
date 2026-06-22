@@ -39,7 +39,7 @@ async function seedDemoMatches() {
       { onConflict: "home_team,away_team,kickoff_time" }
     )
     .select()
-    .order("kickoff_time", { ascending: true });
+    .order("kickoff_time", { ascending: false });
 }
 
 function toLocalInputValue(value: string) {
@@ -78,7 +78,7 @@ export default function AdminPage() {
         return;
       }
 
-      const { data, error } = await supabase.from("matches").select("*").order("kickoff_time", { ascending: true });
+      const { data, error } = await supabase.from("matches").select("*").order("kickoff_time", { ascending: false });
       if (error) {
         setMessage(error.message);
         return;
