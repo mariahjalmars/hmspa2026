@@ -321,9 +321,10 @@ export default function AdminPage() {
         return acc;
       }, {});
 
+      const client = supabase;
       const playerUpdates = await Promise.all(
         (playerData as PlayerIdRow[]).map((player) =>
-          supabase.from("players").update({ total_points: totals[player.id] ?? 0 }).eq("id", player.id)
+          client.from("players").update({ total_points: totals[player.id] ?? 0 }).eq("id", player.id)
         )
       );
       const playerUpdateError = playerUpdates.find((result) => result.error)?.error;
