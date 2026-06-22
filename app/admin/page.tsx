@@ -20,28 +20,6 @@ type PlayerIdRow = {
   id: string;
 };
 
-async function seedDemoMatches() {
-  if (!supabase) {
-    return { data: null, error: null };
-  }
-
-  return supabase
-    .from("matches")
-    .upsert(
-      demoMatches.map(({ home_team, away_team, kickoff_time, status, home_score, away_score }) => ({
-        home_team,
-        away_team,
-        kickoff_time,
-        status,
-        home_score,
-        away_score
-      })),
-      { onConflict: "home_team,away_team,kickoff_time" }
-    )
-    .select()
-    .order("kickoff_time", { ascending: false });
-}
-
 function toLocalInputValue(value: string) {
   const date = new Date(value);
   const offset = date.getTimezoneOffset() * 60000;
@@ -84,23 +62,12 @@ export default function AdminPage() {
         return;
       }
 
-      if (!data.length) {
-        const seededMatches = await seedDemoMatches();
-        if (seededMatches.error) {
-          setMessage(seededMatches.error.message);
-          return;
-        }
-
-        const nextMatches = seededMatches.data ?? [];
-        setMatches(nextMatches);
-        setDrafts(Object.fromEntries(nextMatches.map((match) => [match.id, draftFromMatch(match)])));
-        setMessage("Demo matches added automatically.");
-        return;
-      }
-
-      const nextMatches = data;
+      const nextMatches = data.length ? data : [];
       setMatches(nextMatches);
       setDrafts(Object.fromEntries(nextMatches.map((match) => [match.id, draftFromMatch(match)])));
+      if (!data.length) {
+        setMessage("No matches yet. Seed demo matches to get started.");
+      }
     }
 
     loadMatches();
@@ -111,37 +78,33 @@ export default function AdminPage() {
       setMessage("Connect Supabase before seeding matches.");
       return;
     }
-    const client = supabase;
 
     setBusy(true);
     try {
-      const { error: predictionDeleteError } = await client
-        .from("predictions")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-      if (predictionDeleteError) {
-        throw predictionDeleteError;
-      }
-
-      const { error: matchDeleteError } = await client
+      const { data, error } = await supabase
         .from("matches")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-      if (matchDeleteError) {
-        throw matchDeleteError;
-      }
-
-      const { data, error } = await seedDemoMatches();
+        .upsert(
+          demoMatches.map(({ home_team, away_team, kickoff_time, status, home_score, away_score }) => ({
+            home_team,
+            away_team,
+            kickoff_time,
+            status,
+            home_score,
+            away_score
+          })),
+          { onConflict: "home_team,away_team,kickoff_time" }
+        )
+        .select()
+        .order("kickoff_time", { ascending: false });
 
       if (error) {
         throw error;
       }
-      const nextMatches = data ?? [];
-      setMatches(nextMatches);
-      setDrafts(Object.fromEntries(nextMatches.map((match) => [match.id, draftFromMatch(match)])));
-      setMessage("Schedule reset with Iceland-time matches.");
+      setMatches(data);
+      setDrafts(Object.fromEntries(data.map((match) => [match.id, draftFromMatch(match)])));
+      setMessage("Demo matches synced.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not reset schedule.");
+      setMessage(error instanceof Error ? error.message : "Could not seed matches.");
     } finally {
       setBusy(false);
     }
@@ -206,12 +169,109 @@ export default function AdminPage() {
     }
   }
 
+  async function fetchResults() {
+    if (!supabase) {
+      setMessage("Connect Supabase before fetching results.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const espnResults: Record<string, { homeScore: number; awayScore: number }> = {};
+      const today = new Date();
+
+      for (let i = 0; i < 20; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
+        const res = await fetch(
+          `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dateStr}`
+        );
+        const data = await res.json();
+        if (!data.events) continue;
+
+        for (const event of data.events) {
+          if (event.status?.type?.state !== "post") continue;
+          const comp = event.competitions?.[0];
+          if (!comp) continue;
+          const homeC = comp.competitors?.find((c: { homeAway: string }) => c.homeAway === "home");
+          const awayC = comp.competitors?.find((c: { homeAway: string }) => c.homeAway === "away");
+          if (!homeC || !awayC) continue;
+          const key = `${homeC.team.displayName}|${awayC.team.displayName}`;
+          espnResults[key] = {
+            homeScore: parseInt(homeC.score) || 0,
+            awayScore: parseInt(awayC.score) || 0
+          };
+        }
+      }
+
+      if (Object.keys(espnResults).length === 0) {
+        setMessage("No finished matches found from ESPN.");
+        return;
+      }
+
+      let updated = 0;
+      const updatedMatches: Match[] = [];
+
+      for (const match of matches) {
+        if (match.home_score !== null) continue; // already has scores
+
+        const key1 = `${match.home_team}|${match.away_team}`;
+        const key2 = `${match.away_team}|${match.home_team}`;
+
+        let homeScore: number | null = null;
+        let awayScore: number | null = null;
+
+        if (espnResults[key1]) {
+          homeScore = espnResults[key1].homeScore;
+          awayScore = espnResults[key1].awayScore;
+        } else if (espnResults[key2]) {
+          homeScore = espnResults[key2].awayScore;
+          awayScore = espnResults[key2].homeScore;
+        }
+
+        if (homeScore === null) continue;
+
+        const { data, error } = await supabase
+          .from("matches")
+          .update({ home_score: homeScore, away_score: awayScore, status: "finished" })
+          .eq("id", match.id)
+          .select()
+          .single();
+
+        if (!error && data) {
+          updatedMatches.push(data);
+          updated++;
+        }
+      }
+
+      if (updated > 0) {
+        setMatches((current) =>
+          current
+            .map((m) => updatedMatches.find((u) => u.id === m.id) || m)
+            .sort((a, b) => b.kickoff_time.localeCompare(a.kickoff_time))
+        );
+        setDrafts((current) => {
+          const next = { ...current };
+          for (const m of updatedMatches) next[m.id] = draftFromMatch(m);
+          return next;
+        });
+        setMessage(`Updated ${updated} match${updated === 1 ? "" : "es"} from ESPN.`);
+      } else {
+        setMessage("No new results to update — all matches may already have scores.");
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not fetch results from ESPN.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function recalculatePoints() {
     if (!supabase) {
       setMessage("Connect Supabase before recalculating points.");
       return;
     }
-    const client = supabase;
 
     setBusy(true);
     try {
@@ -220,9 +280,9 @@ export default function AdminPage() {
         { data: predictionData, error: predictionError },
         { data: playerData, error: playerError }
       ] = await Promise.all([
-        client.from("matches").select("*"),
-        client.from("predictions").select("*"),
-        client.from("players").select("id")
+        supabase.from("matches").select("*"),
+        supabase.from("predictions").select("*"),
+        supabase.from("players").select("id")
       ]);
 
       if (matchError) {
@@ -250,7 +310,7 @@ export default function AdminPage() {
       });
 
       if (updates.length) {
-        const { error } = await client.from("predictions").upsert(updates);
+        const { error } = await supabase.from("predictions").upsert(updates);
         if (error) {
           throw error;
         }
@@ -263,7 +323,7 @@ export default function AdminPage() {
 
       const playerUpdates = await Promise.all(
         (playerData as PlayerIdRow[]).map((player) =>
-          client.from("players").update({ total_points: totals[player.id] ?? 0 }).eq("id", player.id)
+          supabase.from("players").update({ total_points: totals[player.id] ?? 0 }).eq("id", player.id)
         )
       );
       const playerUpdateError = playerUpdates.find((result) => result.error)?.error;
@@ -271,7 +331,7 @@ export default function AdminPage() {
         throw playerUpdateError;
       }
 
-      const sortedMatches = (matchData as Match[]).sort((a, b) => a.kickoff_time.localeCompare(b.kickoff_time));
+      const sortedMatches = (matchData as Match[]).sort((a, b) => b.kickoff_time.localeCompare(a.kickoff_time));
       setMatches(sortedMatches);
       setDrafts(Object.fromEntries(sortedMatches.map((match) => [match.id, draftFromMatch(match)])));
       setMessage(`Recalculated ${updates.length} predictions.`);
@@ -303,7 +363,15 @@ export default function AdminPage() {
           onClick={seedMatches}
           type="button"
         >
-          Reset schedule
+          Seed demo matches
+        </button>
+        <button
+          className="h-12 rounded-md bg-grass px-4 font-black text-white disabled:bg-slate-400"
+          disabled={busy || !isSupabaseConfigured}
+          onClick={fetchResults}
+          type="button"
+        >
+          Fetch results from ESPN
         </button>
         <button
           className="h-12 rounded-md bg-berry px-4 font-black text-white disabled:bg-slate-400"
