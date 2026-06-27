@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import "flag-icons/css/flag-icons.min.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "World Cup spá - Sand Fjölskyldan",
-  description: "World Cup 2026 spáleikur Sand fjölskyldunnar."
+  title: "HM Spaa 2026",
+  description: "A private World Cup 2026 prediction game."
 };
 
 export default function RootLayout({
@@ -13,7 +12,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="is">
+    <html lang="en">
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/7.2.3/css/flag-icons.min.css"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );
