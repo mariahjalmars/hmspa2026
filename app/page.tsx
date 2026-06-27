@@ -365,7 +365,7 @@ export default function Home() {
             ) : (
               <>
                 {matches
-                  .filter((m) => new Date(m.kickoff_time).getTime() > Date.now())
+                  .filter((m) => m.status !== "finished")
                   .map((match) => {
                     const draft = drafts[match.id] ?? { home_score: "", away_score: "" };
                     const isSaved = selectedPlayerId
@@ -429,19 +429,19 @@ export default function Home() {
                     );
                   })}
 
-                {matches.filter((m) => new Date(m.kickoff_time).getTime() <= Date.now()).length > 0 && (
+                {matches.filter((m) => m.status === "finished").length > 0 && (
                   <div className="mt-2">
                     <button
                       className="w-full rounded-md border-2 border-ink bg-slate-100 px-4 py-3 text-sm font-black text-ink hover:bg-slate-200"
                       onClick={() => setShowFinished((v) => !v)}
                       type="button"
                     >
-                      {showFinished ? "▲ Fela lokna leiki" : `▼ Sjá lokna leiki (${matches.filter((m) => new Date(m.kickoff_time).getTime() <= Date.now()).length})`}
+                      {showFinished ? "▲ Fela lokna leiki" : `▼ Sjá lokna leiki (${matches.filter((m) => m.status === "finished").length})`}
                     </button>
                     {showFinished && (
                       <div className="mt-3 grid gap-3">
                         {matches
-                          .filter((m) => new Date(m.kickoff_time).getTime() <= Date.now())
+                          .filter((m) => m.status === "finished")
                           .map((match) => {
                             const draft = drafts[match.id];
                             return (
