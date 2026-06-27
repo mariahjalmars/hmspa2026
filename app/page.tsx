@@ -11,124 +11,16 @@ type PredictionDraft = {
   away_score: string;
 };
 
-type ActiveView = "matches" | "predictions";
-
 const avatarBucket = "avatars";
 
-function normalizedKickoff(value: string) {
-  return new Date(value).toISOString();
-}
-
-const officialScheduleKey = demoMatches
-  .map((match) => `${match.home_team}|${match.away_team}|${normalizedKickoff(match.kickoff_time)}`)
-  .join("~~");
-
-const teamFlagCodes: Record<string, string> = {
-  Algeria: "dz",
-  Argentina: "ar",
-  Australia: "au",
-  Austria: "at",
-  Belgium: "be",
-  "Bosnia and Herzegovina": "ba",
-  Brazil: "br",
-  Canada: "ca",
-  "Cape Verde": "cv",
-  Colombia: "co",
-  Croatia: "hr",
-  Curacao: "cw",
-  Czechia: "cz",
-  "DR Congo": "cd",
-  Ecuador: "ec",
-  Egypt: "eg",
-  England: "gb-eng",
-  France: "fr",
-  Germany: "de",
-  Ghana: "gh",
-  Haiti: "ht",
-  Iran: "ir",
-  Iraq: "iq",
-  "Ivory Coast": "ci",
-  Japan: "jp",
-  Jordan: "jo",
-  "Korea Republic": "kr",
-  Mexico: "mx",
-  Morocco: "ma",
-  Netherlands: "nl",
-  "New Zealand": "nz",
-  Norway: "no",
-  Panama: "pa",
-  Paraguay: "py",
-  Portugal: "pt",
-  Qatar: "qa",
-  "Saudi Arabia": "sa",
-  Scotland: "gb-sct",
-  Senegal: "sn",
-  "South Africa": "za",
-  Spain: "es",
-  Sweden: "se",
-  Switzerland: "ch",
-  Tunisia: "tn",
-  Turkiye: "tr",
-  "United States": "us",
-  Uruguay: "uy",
-  Uzbekistan: "uz"
-};
-
-async function seedDemoMatches() {
-  if (!supabase) {
-    return { data: null, error: null };
-  }
-
-  return supabase
-    .from("matches")
-    .upsert(
-      demoMatches.map(({ home_team, away_team, kickoff_time, status, home_score, away_score }) => ({
-        home_team,
-        away_team,
-        kickoff_time,
-        status,
-        home_score,
-        away_score
-      })),
-      { onConflict: "home_team,away_team,kickoff_time" }
-    )
-    .select()
-    .order("kickoff_time", { ascending: true });
-}
-
-async function resetOfficialSchedule() {
-  return seedDemoMatches();
-}
-
-function scheduleKey(matches: Match[]) {
-  return matches.map((match) => `${match.home_team}|${match.away_team}|${normalizedKickoff(match.kickoff_time)}`).join("~~");
-}
-
-function hasOfficialSchedule(matches: Match[]) {
-  return matches.length === demoMatches.length && scheduleKey(matches) === officialScheduleKey;
-}
-
 function kickoffLabel(value: string) {
-  return new Intl.DateTimeFormat("is-IS", {
+  return new Intl.DateTimeFormat("en", {
     weekday: "short",
     month: "short",
     day: "numeric",
     hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Atlantic/Reykjavik"
+    minute: "2-digit"
   }).format(new Date(value));
-}
-
-function groupLabel(match: Match) {
-  const officialMatch = demoMatches.find(
-    (item) =>
-      item.home_team === match.home_team &&
-      item.away_team === match.away_team &&
-      normalizedKickoff(item.kickoff_time) === normalizedKickoff(match.kickoff_time)
-  );
-  const group = officialMatch?.id.match(/^group-([a-l])-/)?.[1]?.toUpperCase();
-  return group ? `RIÐILL ${group}` : "RIÐILL";
 }
 
 function initials(name: string) {
@@ -138,27 +30,6 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function TeamBadge({ align = "left", name }: { align?: "left" | "right"; name: string }) {
-  const code = teamFlagCodes[name];
-  const isRight = align === "right";
-
-  return (
-    <span className={`flex min-w-0 items-center gap-3 ${isRight ? "justify-end text-right" : "justify-start"}`}>
-      {!isRight && (
-        <span className="h-10 w-14 shrink-0 overflow-hidden rounded-md border border-slate-300 bg-white shadow-soft sm:h-11 sm:w-16">
-          {code ? <span className={`fi fi-${code} block h-full w-full`} /> : null}
-        </span>
-      )}
-      <span className="min-w-0 text-xl font-black leading-tight text-ink sm:text-2xl">{name}</span>
-      {isRight && (
-        <span className="h-10 w-14 shrink-0 overflow-hidden rounded-md border border-slate-300 bg-white shadow-soft sm:h-11 sm:w-16">
-          {code ? <span className={`fi fi-${code} block h-full w-full`} /> : null}
-        </span>
-      )}
-    </span>
-  );
 }
 
 export default function Home() {
@@ -171,7 +42,7 @@ export default function Home() {
   const [drafts, setDrafts] = useState<Record<string, PredictionDraft>>({});
   const [message, setMessage] = useState("Add your player to join the game.");
   const [busy, setBusy] = useState(false);
-  const [activeView, setActiveView] = useState<ActiveView>("matches");
+  const [showFinished, setShowFinished] = useState(false);
 
   const selectedPlayer = players.find((player) => player.id === selectedPlayerId);
 
@@ -185,27 +56,6 @@ export default function Home() {
       }))
       .sort((a, b) => b.total_points - a.total_points || a.name.localeCompare(b.name));
   }, [players, predictions]);
-
-  const visiblePredictions = useMemo(() => {
-    return predictions
-      .filter((prediction) => !selectedPlayerId || prediction.player_id === selectedPlayerId)
-      .map((prediction) => ({
-        prediction,
-        match: matches.find((match) => match.id === prediction.match_id),
-        player: players.find((player) => player.id === prediction.player_id)
-      }))
-      .filter((item): item is { prediction: Prediction; match: Match; player: Player } =>
-        Boolean(item.match && item.player)
-      )
-      .sort((a, b) => {
-        const createdDiff =
-          new Date(b.prediction.created_at ?? b.match.kickoff_time).getTime() -
-          new Date(a.prediction.created_at ?? a.match.kickoff_time).getTime();
-        return createdDiff || a.player.name.localeCompare(b.player.name);
-      });
-  }, [matches, players, predictions, selectedPlayerId]);
-
-  const openMatches = useMemo(() => matches.filter((match) => match.status !== "finished"), [matches]);
 
   useEffect(() => {
     async function loadGame() {
@@ -229,27 +79,19 @@ export default function Home() {
       if (playersResult.data) {
         setPlayers(playersResult.data);
       }
-
       if (matchesResult.data) {
+        const sorted = [...matchesResult.data].sort((a, b) => {
+          if (a.status === "finished" && b.status !== "finished") return 1;
+          if (a.status !== "finished" && b.status === "finished") return -1;
+          return a.kickoff_time.localeCompare(b.kickoff_time);
+        });
+        setMatches(sorted);
         if (!matchesResult.data.length) {
-          setMessage("Updating match schedule...");
-          const seededMatches = await resetOfficialSchedule();
-          if (seededMatches.error) {
-            setMessage(seededMatches.error.message);
-            return;
-          }
-          setMatches(seededMatches.data ?? []);
-          setPredictions(predictionsResult.data ?? []);
-          setMessage("Match schedule updated with the right teams.");
-        } else {
-          setMatches(matchesResult.data);
-          if (predictionsResult.data) {
-            setPredictions(predictionsResult.data);
-          }
-          if (!hasOfficialSchedule(matchesResult.data)) {
-            setMessage("Match schedule loaded. Use Admin to sync fixtures if needed.");
-          }
+          setMessage("Go to Admin and seed demo matches before saving predictions.");
         }
+      }
+      if (predictionsResult.data) {
+        setPredictions(predictionsResult.data);
       }
     }
 
@@ -331,10 +173,6 @@ export default function Home() {
       setMessage("Connect Supabase first, then predictions can be saved.");
       return;
     }
-    if (predictions.some((prediction) => prediction.player_id === selectedPlayerId && prediction.match_id === match.id)) {
-      setMessage("Þessi spá er þegar vistuð og ekki hægt að breyta henni.");
-      return;
-    }
 
     const draft = drafts[match.id];
     if (!draft || draft.home_score === "" || draft.away_score === "") {
@@ -354,13 +192,16 @@ export default function Home() {
     try {
       const { data, error } = await supabase
         .from("predictions")
-        .insert({
-          player_id: selectedPlayerId,
-          match_id: match.id,
-          home_score: homeScore,
-          away_score: awayScore,
-          points
-        })
+        .upsert(
+          {
+            player_id: selectedPlayerId,
+            match_id: match.id,
+            home_score: homeScore,
+            away_score: awayScore,
+            points
+          },
+          { onConflict: "player_id,match_id" }
+        )
         .select()
         .single();
 
@@ -368,8 +209,13 @@ export default function Home() {
         throw error;
       }
 
-      setPredictions((current) => [...current, data]);
-      setMessage("Spá vistuð. Ekki er hægt að breyta henni eftir vistun.");
+      setPredictions((current) => [
+        ...current.filter(
+          (prediction) => !(prediction.player_id === selectedPlayerId && prediction.match_id === match.id)
+        ),
+        data
+      ]);
+      setMessage("Prediction saved. Tiny trophy energy.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save prediction.");
     } finally {
@@ -381,10 +227,10 @@ export default function Home() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
       <header className="flex flex-col gap-4 rounded-lg border-4 border-ink bg-white p-5 shadow-soft sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-wide text-berry">World Cup 2026</p>
-          <h1 className="mt-1 text-4xl font-black text-ink sm:text-5xl">World Cup spá - Sand Fjölskyldan</h1>
+          <p className="text-sm font-black uppercase tracking-wide text-berry">Private World Cup 2026</p>
+          <h1 className="mt-1 text-4xl font-black text-ink sm:text-5xl">HM Spaa</h1>
           <p className="mt-2 max-w-xl text-sm font-semibold text-slate-700">
-            Veldu úrslit, vistaðu spárnar fyrir leik og fylgstu með stöðunni.
+            Pick scores, lock them before kickoff, and climb the family leaderboard.
           </p>
         </div>
         <a
@@ -397,7 +243,7 @@ export default function Home() {
 
       <section className="rounded-lg border-4 border-ink bg-sun p-4 text-sm font-black text-ink">{message}</section>
 
-      <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
+      <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
         <aside className="flex flex-col gap-5">
           <section className="rounded-lg border-4 border-ink bg-white p-4 shadow-soft">
             <h2 className="text-2xl font-black">Player</h2>
@@ -437,7 +283,7 @@ export default function Home() {
                 onChange={(event) => setSelectedPlayerId(event.target.value)}
                 value={selectedPlayerId}
               >
-                <option value="">Allir leikmenn</option>
+                <option value="">Choose player</option>
                 {players.map((player) => (
                   <option key={player.id} value={player.id}>
                     {player.name}
@@ -476,158 +322,130 @@ export default function Home() {
         </aside>
 
         <section className="rounded-lg border-4 border-ink bg-white p-4 shadow-soft">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-black">Matches</h2>
               <p className="text-sm font-semibold text-slate-600">
-                {activeView === "predictions"
-                  ? selectedPlayer
-                    ? `Spár hjá ${selectedPlayer.name}`
-                    : "Spár hjá öllum leikmönnum"
-                  : selectedPlayer
-                    ? `Predictions for ${selectedPlayer.name}`
-                    : "Veldu leikmann til að vista spá."}
+                {selectedPlayer ? `Predictions for ${selectedPlayer.name}` : "Choose a player to start predicting."}
               </p>
-            </div>
-            <div className="grid grid-cols-2 rounded-lg border-2 border-ink bg-slate-100 p-1 text-sm font-black">
-              <button
-                className={`rounded-md px-4 py-2 ${activeView === "matches" ? "bg-ink text-white" : "text-ink"}`}
-                onClick={() => setActiveView("matches")}
-                type="button"
-              >
-                Leikir
-              </button>
-              <button
-                className={`rounded-md px-4 py-2 ${activeView === "predictions" ? "bg-ink text-white" : "text-ink"}`}
-                onClick={() => setActiveView("predictions")}
-                type="button"
-              >
-                Spár
-              </button>
             </div>
           </div>
 
-          {activeView === "predictions" ? (
-            <div className="mt-4 grid gap-3">
-              {visiblePredictions.length === 0 ? (
-                <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
-                  Engar spár hafa verið vistaðar ennþá.
-                </div>
-              ) : (
-                visiblePredictions.map(({ match, player, prediction }) => (
-                  <article key={prediction.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-wide text-ocean">{groupLabel(match)}</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-600">{kickoffLabel(match.kickoff_time)}</p>
-                        <p className="mt-1 text-sm font-black text-ink">{player.name}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-base font-black text-ink sm:text-lg">
-                        <span>{match.home_team}</span>
-                        <span className="rounded-md bg-slate-100 px-3 py-1">
-                          {prediction.home_score} - {prediction.away_score}
-                        </span>
-                        <span>{match.away_team}</span>
-                      </div>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-4">
-              {openMatches.length === 0 ? (
-                <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
-                  Engir opnir leikir eins og er.
-                </div>
-              ) : (
-                openMatches.map((match) => {
-                  const locked = new Date(match.kickoff_time).getTime() <= Date.now();
-                  const savedPrediction = selectedPlayerId
-                    ? predictions.find(
-                        (prediction) => prediction.player_id === selectedPlayerId && prediction.match_id === match.id
-                      )
-                    : undefined;
-                  const draft = savedPrediction
-                    ? { home_score: String(savedPrediction.home_score), away_score: String(savedPrediction.away_score) }
-                    : drafts[match.id] ?? { home_score: "", away_score: "" };
-                  const predictionLocked = Boolean(savedPrediction);
-
-                  return (
-                    <article key={match.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
-                      <div className="flex flex-col gap-1 border-b border-slate-200 bg-[#f8f5ec] px-4 py-2.5 text-slate-700 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs font-black uppercase tracking-wide">{groupLabel(match)}</p>
-                        <p className="text-sm font-semibold">{kickoffLabel(match.kickoff_time)}</p>
-                      </div>
-
-                      <div className="p-4">
-                        <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
-                          <TeamBadge name={match.home_team} />
-                          <div className="mx-auto text-xl font-black text-slate-500 sm:text-2xl">VS</div>
-                          <TeamBadge align="right" name={match.away_team} />
-                        </div>
-
-                        <div className="mt-4 border-t border-slate-200 pt-4">
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                            <div className="grid grid-cols-[76px_auto_76px] items-end gap-3">
-                              <div>
-                                <span className="mb-2 block min-h-8 text-xs font-black uppercase leading-tight tracking-wide text-slate-600">
-                                  {match.home_team}
-                                </span>
-                                <input
-                                  aria-label={`${match.home_team} score`}
-                                  className="h-12 w-16 rounded-lg border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-xl font-black text-ink outline-none focus:border-grass disabled:text-slate-500"
-                                  disabled={locked || !selectedPlayerId || predictionLocked}
-                                  min={0}
-                                  onChange={(event) =>
-                                    setDrafts((current) => ({
-                                      ...current,
-                                      [match.id]: { ...draft, home_score: event.target.value }
-                                    }))
-                                  }
-                                  type="number"
-                                  value={draft.home_score}
-                                />
-                              </div>
-                              <span className="pb-3 text-lg font-black text-slate-700">-</span>
-                              <div>
-                                <span className="mb-2 block min-h-8 text-xs font-black uppercase leading-tight tracking-wide text-slate-600">
-                                  {match.away_team}
-                                </span>
-                                <input
-                                  aria-label={`${match.away_team} score`}
-                                  className="h-12 w-16 rounded-lg border-2 border-slate-200 bg-[#fbfaf5] px-2 text-center text-xl font-black text-ink outline-none focus:border-grass disabled:text-slate-500"
-                                  disabled={locked || !selectedPlayerId || predictionLocked}
-                                  min={0}
-                                  onChange={(event) =>
-                                    setDrafts((current) => ({
-                                      ...current,
-                                      [match.id]: { ...draft, away_score: event.target.value }
-                                    }))
-                                  }
-                                  type="number"
-                                  value={draft.away_score}
-                                />
-                              </div>
-                            </div>
-
-                            <button
-                              className="h-11 rounded-lg bg-grass px-5 text-base font-black text-white shadow-soft disabled:cursor-not-allowed disabled:bg-slate-400"
-                              disabled={busy || locked || !selectedPlayerId || predictionLocked}
-                              onClick={() => savePrediction(match)}
-                              type="button"
-                            >
-                              {predictionLocked ? "Spá vistuð" : "Vista spá"}
-                            </button>
+          <div className="mt-4 grid gap-4">
+            {matches.length === 0 ? (
+              <div className="rounded-lg border-2 border-ink bg-[#f8fbff] p-5 font-bold text-slate-700">
+                No matches have been seeded yet.
+              </div>
+            ) : (
+              <>
+                {matches
+                  .filter((m) => m.status !== "finished")
+                  .map((match) => {
+                    const locked = new Date(match.kickoff_time).getTime() <= Date.now();
+                    const draft = drafts[match.id] ?? { home_score: "", away_score: "" };
+                    return (
+                      <article key={match.id} className="rounded-lg border-2 border-ink bg-[#f8fbff] p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-ocean">
+                              {kickoffLabel(match.kickoff_time)}
+                            </p>
+                            <h3 className="mt-1 text-xl font-black">
+                              {match.home_team} vs {match.away_team}
+                            </h3>
+                            <p className="text-sm font-semibold text-slate-600">
+                              {locked ? "Locked" : "Open for predictions"}
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+                            <label className="text-xs font-black">
+                              {match.home_team}
+                              <input
+                                className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
+                                disabled={locked || !selectedPlayerId}
+                                min={0}
+                                onChange={(event) =>
+                                  setDrafts((current) => ({
+                                    ...current,
+                                    [match.id]: { ...draft, home_score: event.target.value }
+                                  }))
+                                }
+                                type="number"
+                                value={draft.home_score}
+                              />
+                            </label>
+                            <span className="pb-3 text-xl font-black">-</span>
+                            <label className="text-xs font-black">
+                              {match.away_team}
+                              <input
+                                className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
+                                disabled={locked || !selectedPlayerId}
+                                min={0}
+                                onChange={(event) =>
+                                  setDrafts((current) => ({
+                                    ...current,
+                                    [match.id]: { ...draft, away_score: event.target.value }
+                                  }))
+                                }
+                                type="number"
+                                value={draft.away_score}
+                              />
+                            </label>
                           </div>
                         </div>
+                        <button
+                          className="mt-4 h-11 w-full rounded-md bg-grass px-4 font-black text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto"
+                          disabled={busy || locked || !selectedPlayerId}
+                          onClick={() => savePrediction(match)}
+                          type="button"
+                        >
+                          Save prediction
+                        </button>
+                      </article>
+                    );
+                  })}
+
+                {matches.filter((m) => m.status === "finished").length > 0 && (
+                  <div className="mt-2">
+                    <button
+                      className="w-full rounded-md border-2 border-ink bg-slate-100 px-4 py-3 text-sm font-black text-ink hover:bg-slate-200"
+                      onClick={() => setShowFinished((v) => !v)}
+                      type="button"
+                    >
+                      {showFinished ? "▲ Fela lokna leiki" : `▼ Sjá lokna leiki (${matches.filter((m) => m.status === "finished").length})`}
+                    </button>
+                    {showFinished && (
+                      <div className="mt-3 grid gap-3">
+                        {matches
+                          .filter((m) => m.status === "finished")
+                          .map((match) => {
+                            const draft = drafts[match.id];
+                            return (
+                              <article key={match.id} className="rounded-lg border-2 border-slate-300 bg-slate-50 p-4 opacity-75">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                      {kickoffLabel(match.kickoff_time)}
+                                    </p>
+                                    <h3 className="mt-1 text-lg font-black">
+                                      {match.home_team} vs {match.away_team}
+                                    </h3>
+                                    <p className="text-sm font-semibold text-slate-600">
+                                      Lokaniðurstaða: {match.home_score}–{match.away_score}
+                                      {draft && ` · Spá þín: ${draft.home_score}–${draft.away_score}`}
+                                    </p>
+                                  </div>
+                                </div>
+                              </article>
+                            );
+                          })}
                       </div>
-                    </article>
-                  );
-                })
-              )}
-            </div>
-          )}
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </section>
       </div>
     </main>
