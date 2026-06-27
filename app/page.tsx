@@ -385,40 +385,36 @@ export default function Home() {
                               {isSaved ? "✓ Spá vistuð" : "Opið fyrir spár"}
                             </p>
                           </div>
-                          <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-                            <label className="text-xs font-black">
-                              <FlagIcon team={match.home_team} />{match.home_team}
-                              <input
-                                className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
-                                disabled={!selectedPlayerId}
-                                min={0}
-                                onChange={(event) =>
-                                  setDrafts((current) => ({
-                                    ...current,
-                                    [match.id]: { ...draft, home_score: event.target.value }
-                                  }))
-                                }
-                                type="number"
-                                value={draft.home_score}
-                              />
-                            </label>
-                            <span className="pb-3 text-xl font-black">-</span>
-                            <label className="text-xs font-black">
-                              <FlagIcon team={match.away_team} />{match.away_team}
-                              <input
-                                className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
-                                disabled={!selectedPlayerId}
-                                min={0}
-                                onChange={(event) =>
-                                  setDrafts((current) => ({
-                                    ...current,
-                                    [match.id]: { ...draft, away_score: event.target.value }
-                                  }))
-                                }
-                                type="number"
-                                value={draft.away_score}
-                              />
-                            </label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              aria-label={match.home_team}
+                              className="h-16 w-24 rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
+                              disabled={!selectedPlayerId}
+                              min={0}
+                              onChange={(event) =>
+                                setDrafts((current) => ({
+                                  ...current,
+                                  [match.id]: { ...draft, home_score: event.target.value }
+                                }))
+                              }
+                              type="number"
+                              value={draft.home_score}
+                            />
+                            <span className="text-2xl font-black">–</span>
+                            <input
+                              aria-label={match.away_team}
+                              className="h-16 w-24 rounded-md border-2 border-ink px-2 text-center text-2xl font-black"
+                              disabled={!selectedPlayerId}
+                              min={0}
+                              onChange={(event) =>
+                                setDrafts((current) => ({
+                                  ...current,
+                                  [match.id]: { ...draft, away_score: event.target.value }
+                                }))
+                              }
+                              type="number"
+                              value={draft.away_score}
+                            />
                           </div>
                         </div>
                         <button
