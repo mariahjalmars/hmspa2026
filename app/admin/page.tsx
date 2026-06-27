@@ -46,6 +46,7 @@ export default function AdminPage() {
   const [drafts, setDrafts] = useState<Record<string, MatchDraft>>({});
   const [message, setMessage] = useState("Admin controls for match results.");
   const [busy, setBusy] = useState(false);
+  const [showFinishedAdmin, setShowFinishedAdmin] = useState(false);
 
   useEffect(() => {
     async function loadMatches() {
@@ -390,113 +391,180 @@ export default function AdminPage() {
             No matches yet. Seed the demo schedule first.
           </div>
         ) : (
-          matches.map((match) => {
-            const draft = drafts[match.id];
-            if (!draft) {
-              return null;
-            }
-
-            return (
-              <article key={match.id} className="rounded-lg border-4 border-ink bg-white p-4 shadow-soft">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-sm font-black">
-                    Home team
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [match.id]: { ...draft, home_team: event.target.value }
-                        }))
-                      }
-                      value={draft.home_team}
-                    />
-                  </label>
-                  <label className="text-sm font-black">
-                    Away team
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [match.id]: { ...draft, away_team: event.target.value }
-                        }))
-                      }
-                      value={draft.away_team}
-                    />
-                  </label>
-                  <label className="text-sm font-black">
-                    Kickoff
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [match.id]: { ...draft, kickoff_time: event.target.value }
-                        }))
-                      }
-                      type="datetime-local"
-                      value={draft.kickoff_time}
-                    />
-                  </label>
-                  <label className="text-sm font-black">
-                    Status
-                    <select
-                      className="mt-1 h-11 w-full rounded-md border-2 border-ink bg-white px-3 font-semibold"
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [match.id]: { ...draft, status: event.target.value as MatchDraft["status"] }
-                        }))
-                      }
-                      value={draft.status}
+          <>
+            {/* Pending matches — scheduled or missing scores */}
+            {matches
+              .filter((m) => !(m.status === "finished" && m.home_score !== null && m.away_score !== null))
+              .map((match) => {
+                const draft = drafts[match.id];
+                if (!draft) return null;
+                return (
+                  <article key={match.id} className="rounded-lg border-4 border-ink bg-white p-4 shadow-soft">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="text-sm font-black">
+                        Home team
+                        <input
+                          className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
+                          onChange={(event) =>
+                            setDrafts((current) => ({ ...current, [match.id]: { ...draft, home_team: event.target.value } }))
+                          }
+                          value={draft.home_team}
+                        />
+                      </label>
+                      <label className="text-sm font-black">
+                        Away team
+                        <input
+                          className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
+                          onChange={(event) =>
+                            setDrafts((current) => ({ ...current, [match.id]: { ...draft, away_team: event.target.value } }))
+                          }
+                          value={draft.away_team}
+                        />
+                      </label>
+                      <label className="text-sm font-black">
+                        Kickoff
+                        <input
+                          className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
+                          onChange={(event) =>
+                            setDrafts((current) => ({ ...current, [match.id]: { ...draft, kickoff_time: event.target.value } }))
+                          }
+                          type="datetime-local"
+                          value={draft.kickoff_time}
+                        />
+                      </label>
+                      <label className="text-sm font-black">
+                        Status
+                        <select
+                          className="mt-1 h-11 w-full rounded-md border-2 border-ink bg-white px-3 font-semibold"
+                          onChange={(event) =>
+                            setDrafts((current) => ({ ...current, [match.id]: { ...draft, status: event.target.value as MatchDraft["status"] } }))
+                          }
+                          value={draft.status}
+                        >
+                          <option value="scheduled">Scheduled</option>
+                          <option value="finished">Finished</option>
+                        </select>
+                      </label>
+                      <label className="text-sm font-black">
+                        Home score
+                        <input
+                          className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
+                          min={0}
+                          onChange={(event) =>
+                            setDrafts((current) => ({ ...current, [match.id]: { ...draft, home_score: event.target.value } }))
+                          }
+                          type="number"
+                          value={draft.home_score}
+                        />
+                      </label>
+                      <label className="text-sm font-black">
+                        Away score
+                        <input
+                          className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
+                          min={0}
+                          onChange={(event) =>
+                            setDrafts((current) => ({ ...current, [match.id]: { ...draft, away_score: event.target.value } }))
+                          }
+                          type="number"
+                          value={draft.away_score}
+                        />
+                      </label>
+                    </div>
+                    <button
+                      className="mt-4 h-11 rounded-md bg-grass px-4 font-black text-white disabled:bg-slate-400"
+                      disabled={busy || !isSupabaseConfigured}
+                      onClick={() => saveMatch(match)}
+                      type="button"
                     >
-                      <option value="scheduled">Scheduled</option>
-                      <option value="finished">Finished</option>
-                    </select>
-                  </label>
-                  <label className="text-sm font-black">
-                    Home score
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
-                      min={0}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [match.id]: { ...draft, home_score: event.target.value }
-                        }))
-                      }
-                      type="number"
-                      value={draft.home_score}
-                    />
-                  </label>
-                  <label className="text-sm font-black">
-                    Away score
-                    <input
-                      className="mt-1 h-11 w-full rounded-md border-2 border-ink px-3 font-semibold"
-                      min={0}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [match.id]: { ...draft, away_score: event.target.value }
-                        }))
-                      }
-                      type="number"
-                      value={draft.away_score}
-                    />
-                  </label>
-                </div>
+                      Save match
+                    </button>
+                  </article>
+                );
+              })}
+
+            {/* Finished matches — collapsible */}
+            {matches.filter((m) => m.status === "finished" && m.home_score !== null && m.away_score !== null).length > 0 && (
+              <div className="mt-2">
                 <button
-                  className="mt-4 h-11 rounded-md bg-grass px-4 font-black text-white disabled:bg-slate-400"
-                  disabled={busy || !isSupabaseConfigured}
-                  onClick={() => saveMatch(match)}
+                  className="w-full rounded-md border-2 border-ink bg-slate-100 px-4 py-3 text-sm font-black text-ink hover:bg-slate-200"
+                  onClick={() => setShowFinishedAdmin((v) => !v)}
                   type="button"
                 >
-                  Save match
+                  {showFinishedAdmin
+                    ? "▲ Fela lokna leiki"
+                    : `▼ Sýna lokna leiki (${matches.filter((m) => m.status === "finished" && m.home_score !== null).length})`}
                 </button>
-              </article>
-            );
-          })
+                {showFinishedAdmin && (
+                  <div className="mt-3 grid gap-3">
+                    {matches
+                      .filter((m) => m.status === "finished" && m.home_score !== null && m.away_score !== null)
+                      .map((match) => {
+                        const draft = drafts[match.id];
+                        if (!draft) return null;
+                        return (
+                          <article key={match.id} className="rounded-lg border-4 border-slate-300 bg-slate-50 p-4 opacity-80 shadow-soft">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="text-sm font-black">
+                                Home team
+                                <input
+                                  className="mt-1 h-11 w-full rounded-md border-2 border-slate-300 px-3 font-semibold"
+                                  onChange={(event) =>
+                                    setDrafts((current) => ({ ...current, [match.id]: { ...draft, home_team: event.target.value } }))
+                                  }
+                                  value={draft.home_team}
+                                />
+                              </label>
+                              <label className="text-sm font-black">
+                                Away team
+                                <input
+                                  className="mt-1 h-11 w-full rounded-md border-2 border-slate-300 px-3 font-semibold"
+                                  onChange={(event) =>
+                                    setDrafts((current) => ({ ...current, [match.id]: { ...draft, away_team: event.target.value } }))
+                                  }
+                                  value={draft.away_team}
+                                />
+                              </label>
+                              <label className="text-sm font-black">
+                                Home score
+                                <input
+                                  className="mt-1 h-11 w-full rounded-md border-2 border-slate-300 px-3 font-semibold"
+                                  min={0}
+                                  onChange={(event) =>
+                                    setDrafts((current) => ({ ...current, [match.id]: { ...draft, home_score: event.target.value } }))
+                                  }
+                                  type="number"
+                                  value={draft.home_score}
+                                />
+                              </label>
+                              <label className="text-sm font-black">
+                                Away score
+                                <input
+                                  className="mt-1 h-11 w-full rounded-md border-2 border-slate-300 px-3 font-semibold"
+                                  min={0}
+                                  onChange={(event) =>
+                                    setDrafts((current) => ({ ...current, [match.id]: { ...draft, away_score: event.target.value } }))
+                                  }
+                                  type="number"
+                                  value={draft.away_score}
+                                />
+                              </label>
+                            </div>
+                            <button
+                              className="mt-4 h-11 rounded-md bg-slate-500 px-4 font-black text-white disabled:bg-slate-400"
+                              disabled={busy || !isSupabaseConfigured}
+                              onClick={() => saveMatch(match)}
+                              type="button"
+                            >
+                              Update match
+                            </button>
+                          </article>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </section>
     </main>
