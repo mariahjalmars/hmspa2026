@@ -141,6 +141,10 @@ export default function AdminPage() {
       return;
     }
 
+    // Auto-finish past matches that have scores
+    const isPast = new Date(fromLocalInputValue(draft.kickoff_time)).getTime() <= Date.now();
+    const effectiveStatus = isPast && homeScore !== null && awayScore !== null ? "finished" : draft.status;
+
     setBusy(true);
     try {
       const { data, error } = await supabase
@@ -149,7 +153,7 @@ export default function AdminPage() {
           home_team: draft.home_team.trim(),
           away_team: draft.away_team.trim(),
           kickoff_time: fromLocalInputValue(draft.kickoff_time),
-          status: draft.status,
+          status: effectiveStatus,
           home_score: homeScore,
           away_score: awayScore
         })
@@ -392,9 +396,9 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
-            {/* Pending matches — scheduled or missing scores */}
+            {/* Pending matches — kickoff in the future */}
             {matches
-              .filter((m) => !(m.status === "finished" && m.home_score !== null && m.away_score !== null))
+              .filter((m) => new Date(m.kickoff_time).getTime() > Date.now())
               .map((match) => {
                 const draft = drafts[match.id];
                 if (!draft) return null;
@@ -482,8 +486,8 @@ export default function AdminPage() {
                 );
               })}
 
-            {/* Finished matches — collapsible */}
-            {matches.filter((m) => m.status === "finished" && m.home_score !== null && m.away_score !== null).length > 0 && (
+            {/* Past matches — collapsible */}
+            {matches.filter((m) => new Date(m.kickoff_time).getTime() <= Date.now()).length > 0 && (
               <div className="mt-2">
                 <button
                   className="w-full rounded-md border-2 border-ink bg-slate-100 px-4 py-3 text-sm font-black text-ink hover:bg-slate-200"
@@ -492,12 +496,12 @@ export default function AdminPage() {
                 >
                   {showFinishedAdmin
                     ? "▲ Fela lokna leiki"
-                    : `▼ Sýna lokna leiki (${matches.filter((m) => m.status === "finished" && m.home_score !== null).length})`}
+                    : `▼ Sýna lokna leiki (${matches.filter((m) => new Date(m.kickoff_time).getTime() <= Date.now()).length})`}
                 </button>
                 {showFinishedAdmin && (
                   <div className="mt-3 grid gap-3">
                     {matches
-                      .filter((m) => m.status === "finished" && m.home_score !== null && m.away_score !== null)
+                      .filter((m) => new Date(m.kickoff_time).getTime() <= Date.now())
                       .map((match) => {
                         const draft = drafts[match.id];
                         if (!draft) return null;
