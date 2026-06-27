@@ -32,6 +32,29 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+const FLAG: Record<string, string> = {
+  "Argentina": "🇦🇷", "Australia": "🇦🇺", "Belgium": "🇧🇪", "Bolivia": "🇧🇴",
+  "Bosnia and Herzegovina": "🇧🇦", "Brazil": "🇧🇷", "Cameroon": "🇨🇲",
+  "Canada": "🇨🇦", "Chile": "🇨🇱", "Colombia": "🇨🇴", "Costa Rica": "🇨🇷",
+  "Croatia": "🇭🇷", "DR Congo": "🇨🇩", "Ecuador": "🇪🇨", "Egypt": "🇪🇬",
+  "England": "🇬🇧", "France": "🇫🇷", "Germany": "🇩🇪", "Ghana": "🇬🇭",
+  "Honduras": "🇭🇳", "Iran": "🇮🇷", "Japan": "🇯🇵", "Kenya": "🇰🇪",
+  "Mali": "🇲🇱", "Mexico": "🇲🇽", "Morocco": "🇲🇦", "Netherlands": "🇳🇱",
+  "New Zealand": "🇳🇿", "Nigeria": "🇳🇬", "Panama": "🇵🇦", "Paraguay": "🇵🇾",
+  "Peru": "🇵🇪", "Portugal": "🇵🇹", "Qatar": "🇶🇦", "Saudi Arabia": "🇸🇦",
+  "Senegal": "🇸🇳", "Serbia": "🇷🇸", "Slovenia": "🇸🇮", "South Korea": "🇰🇷",
+  "Spain": "🇪🇸", "Sweden": "🇸🇪", "Switzerland": "🇨🇭", "Togo": "🇹🇬",
+  "Turkiye": "🇹🇷", "Turkey": "🇹🇷", "Ukraine": "🇺🇦",
+  "United States": "🇺🇸", "Uruguay": "🇺🇾", "Venezuela": "🇻🇪",
+  "Algeria": "🇩🇿", "South Africa": "🇿🇦", "Tanzania": "🇹🇿",
+  "Jamaica": "🇯🇲", "Guatemala": "🇬🇹", "El Salvador": "🇸🇻",
+  "Cuba": "🇨🇺", "Trinidad and Tobago": "🇹🇹",
+};
+
+function flag(team: string) {
+  return FLAG[team] ?? "";
+}
+
 export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>(demoMatches);
@@ -339,30 +362,32 @@ export default function Home() {
             ) : (
               <>
                 {matches
-                  .filter((m) => m.status !== "finished")
+                  .filter((m) => new Date(m.kickoff_time).getTime() > Date.now())
                   .map((match) => {
-                    const locked = new Date(match.kickoff_time).getTime() <= Date.now();
                     const draft = drafts[match.id] ?? { home_score: "", away_score: "" };
+                    const isSaved = selectedPlayerId
+                      ? predictions.some((p) => p.player_id === selectedPlayerId && p.match_id === match.id)
+                      : false;
                     return (
-                      <article key={match.id} className="rounded-lg border-2 border-ink bg-[#f8fbff] p-4">
+                      <article key={match.id} className={`rounded-lg border-2 bg-[#f8fbff] p-4 ${isSaved ? "border-grass" : "border-ink"}`}>
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-xs font-black uppercase tracking-wide text-ocean">
                               {kickoffLabel(match.kickoff_time)}
                             </p>
                             <h3 className="mt-1 text-xl font-black">
-                              {match.home_team} vs {match.away_team}
+                              {flag(match.home_team)} {match.home_team} vs {flag(match.away_team)} {match.away_team}
                             </h3>
                             <p className="text-sm font-semibold text-slate-600">
-                              {locked ? "Locked" : "Open for predictions"}
+                              {isSaved ? "✓ Spá vistuð" : "Opið fyrir spár"}
                             </p>
                           </div>
                           <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
                             <label className="text-xs font-black">
-                              {match.home_team}
+                              {flag(match.home_team)} {match.home_team}
                               <input
                                 className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
-                                disabled={locked || !selectedPlayerId}
+                                disabled={!selectedPlayerId}
                                 min={0}
                                 onChange={(event) =>
                                   setDrafts((current) => ({
@@ -376,10 +401,10 @@ export default function Home() {
                             </label>
                             <span className="pb-3 text-xl font-black">-</span>
                             <label className="text-xs font-black">
-                              {match.away_team}
+                              {flag(match.away_team)} {match.away_team}
                               <input
                                 className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
-                                disabled={locked || !selectedPlayerId}
+                                disabled={!selectedPlayerId}
                                 min={0}
                                 onChange={(event) =>
                                   setDrafts((current) => ({
@@ -395,29 +420,29 @@ export default function Home() {
                         </div>
                         <button
                           className="mt-4 h-11 w-full rounded-md bg-grass px-4 font-black text-white disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto"
-                          disabled={busy || locked || !selectedPlayerId}
+                          disabled={busy || !selectedPlayerId}
                           onClick={() => savePrediction(match)}
                           type="button"
                         >
-                          Save prediction
+                          {isSaved ? "Uppfæra spá" : "Vista spá"}
                         </button>
                       </article>
                     );
                   })}
 
-                {matches.filter((m) => m.status === "finished").length > 0 && (
+                {matches.filter((m) => new Date(m.kickoff_time).getTime() <= Date.now()).length > 0 && (
                   <div className="mt-2">
                     <button
                       className="w-full rounded-md border-2 border-ink bg-slate-100 px-4 py-3 text-sm font-black text-ink hover:bg-slate-200"
                       onClick={() => setShowFinished((v) => !v)}
                       type="button"
                     >
-                      {showFinished ? "▲ Fela lokna leiki" : `▼ Sjá lokna leiki (${matches.filter((m) => m.status === "finished").length})`}
+                      {showFinished ? "▲ Fela lokna leiki" : `▼ Sjá lokna leiki (${matches.filter((m) => new Date(m.kickoff_time).getTime() <= Date.now()).length})`}
                     </button>
                     {showFinished && (
                       <div className="mt-3 grid gap-3">
                         {matches
-                          .filter((m) => m.status === "finished")
+                          .filter((m) => new Date(m.kickoff_time).getTime() <= Date.now())
                           .map((match) => {
                             const draft = drafts[match.id];
                             return (
@@ -428,11 +453,12 @@ export default function Home() {
                                       {kickoffLabel(match.kickoff_time)}
                                     </p>
                                     <h3 className="mt-1 text-lg font-black">
-                                      {match.home_team} vs {match.away_team}
+                                      {flag(match.home_team)} {match.home_team} vs {flag(match.away_team)} {match.away_team}
                                     </h3>
                                     <p className="text-sm font-semibold text-slate-600">
-                                      Lokaniðurstaða: {match.home_score}–{match.away_score}
-                                      {draft && ` · Spá þín: ${draft.home_score}–${draft.away_score}`}
+                                      {match.status === "finished"
+                                        ? `Lokaniðurstaða: ${match.home_score}–${match.away_score}${draft ? ` · Spá þín: ${draft.home_score}–${draft.away_score}` : ""}`
+                                        : "Lokið"}
                                     </p>
                                   </div>
                                 </div>
