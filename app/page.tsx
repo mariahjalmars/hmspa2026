@@ -32,27 +32,30 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-const FLAG: Record<string, string> = {
-  "Argentina": "🇦🇷", "Australia": "🇦🇺", "Belgium": "🇧🇪", "Bolivia": "🇧🇴",
-  "Bosnia and Herzegovina": "🇧🇦", "Brazil": "🇧🇷", "Cameroon": "🇨🇲",
-  "Canada": "🇨🇦", "Chile": "🇨🇱", "Colombia": "🇨🇴", "Costa Rica": "🇨🇷",
-  "Croatia": "🇭🇷", "DR Congo": "🇨🇩", "Ecuador": "🇪🇨", "Egypt": "🇪🇬",
-  "England": "🇬🇧", "France": "🇫🇷", "Germany": "🇩🇪", "Ghana": "🇬🇭",
-  "Honduras": "🇭🇳", "Iran": "🇮🇷", "Japan": "🇯🇵", "Kenya": "🇰🇪",
-  "Mali": "🇲🇱", "Mexico": "🇲🇽", "Morocco": "🇲🇦", "Netherlands": "🇳🇱",
-  "New Zealand": "🇳🇿", "Nigeria": "🇳🇬", "Panama": "🇵🇦", "Paraguay": "🇵🇾",
-  "Peru": "🇵🇪", "Portugal": "🇵🇹", "Qatar": "🇶🇦", "Saudi Arabia": "🇸🇦",
-  "Senegal": "🇸🇳", "Serbia": "🇷🇸", "Slovenia": "🇸🇮", "South Korea": "🇰🇷",
-  "Spain": "🇪🇸", "Sweden": "🇸🇪", "Switzerland": "🇨🇭", "Togo": "🇹🇬",
-  "Turkiye": "🇹🇷", "Turkey": "🇹🇷", "Ukraine": "🇺🇦",
-  "United States": "🇺🇸", "Uruguay": "🇺🇾", "Venezuela": "🇻🇪",
-  "Algeria": "🇩🇿", "South Africa": "🇿🇦", "Tanzania": "🇹🇿",
-  "Jamaica": "🇯🇲", "Guatemala": "🇬🇹", "El Salvador": "🇸🇻",
-  "Cuba": "🇨🇺", "Trinidad and Tobago": "🇹🇹",
+const COUNTRY_CODE: Record<string, string> = {
+  "Algeria": "dz", "Argentina": "ar", "Australia": "au", "Austria": "at",
+  "Belgium": "be", "Bolivia": "bo", "Bosnia and Herzegovina": "ba",
+  "Brazil": "br", "Cameroon": "cm", "Canada": "ca", "Cape Verde": "cv",
+  "Chile": "cl", "Colombia": "co", "Costa Rica": "cr", "Croatia": "hr",
+  "Cuba": "cu", "DR Congo": "cd", "Ecuador": "ec", "Egypt": "eg",
+  "El Salvador": "sv", "England": "gb", "France": "fr", "Germany": "de",
+  "Ghana": "gh", "Guatemala": "gt", "Honduras": "hn", "Iran": "ir",
+  "Ivory Coast": "ci", "Jamaica": "jm", "Japan": "jp", "Jordan": "jo",
+  "Kenya": "ke", "Mali": "ml", "Mexico": "mx", "Morocco": "ma",
+  "Netherlands": "nl", "New Zealand": "nz", "Nigeria": "ng", "Norway": "no",
+  "Panama": "pa", "Paraguay": "py", "Peru": "pe", "Portugal": "pt",
+  "Qatar": "qa", "Saudi Arabia": "sa", "Senegal": "sn", "Serbia": "rs",
+  "Slovenia": "si", "South Africa": "za", "South Korea": "kr", "Spain": "es",
+  "Sweden": "se", "Switzerland": "ch", "Tanzania": "tz", "Togo": "tg",
+  "Trinidad and Tobago": "tt", "Turkey": "tr", "Turkiye": "tr",
+  "Ukraine": "ua", "United States": "us", "Uruguay": "uy",
+  "Uzbekistan": "uz", "Venezuela": "ve",
 };
 
-function flag(team: string) {
-  return FLAG[team] ?? "";
+function FlagIcon({ team }: { team: string }) {
+  const code = COUNTRY_CODE[team];
+  if (!code) return null;
+  return <span className={`fi fi-${code}`} style={{ borderRadius: "2px", marginRight: "4px" }} />;
 }
 
 export default function Home() {
@@ -376,7 +379,7 @@ export default function Home() {
                               {kickoffLabel(match.kickoff_time)}
                             </p>
                             <h3 className="mt-1 text-xl font-black">
-                              {flag(match.home_team)} {match.home_team} vs {flag(match.away_team)} {match.away_team}
+                              <FlagIcon team={match.home_team} />{match.home_team} vs <FlagIcon team={match.away_team} />{match.away_team}
                             </h3>
                             <p className="text-sm font-semibold text-slate-600">
                               {isSaved ? "✓ Spá vistuð" : "Opið fyrir spár"}
@@ -384,7 +387,7 @@ export default function Home() {
                           </div>
                           <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
                             <label className="text-xs font-black">
-                              {flag(match.home_team)} {match.home_team}
+                              <FlagIcon team={match.home_team} />{match.home_team}
                               <input
                                 className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
                                 disabled={!selectedPlayerId}
@@ -401,7 +404,7 @@ export default function Home() {
                             </label>
                             <span className="pb-3 text-xl font-black">-</span>
                             <label className="text-xs font-black">
-                              {flag(match.away_team)} {match.away_team}
+                              <FlagIcon team={match.away_team} />{match.away_team}
                               <input
                                 className="mt-1 h-12 w-full rounded-md border-2 border-ink px-2 text-center text-xl font-black"
                                 disabled={!selectedPlayerId}
@@ -453,7 +456,7 @@ export default function Home() {
                                       {kickoffLabel(match.kickoff_time)}
                                     </p>
                                     <h3 className="mt-1 text-lg font-black">
-                                      {flag(match.home_team)} {match.home_team} vs {flag(match.away_team)} {match.away_team}
+                                      <FlagIcon team={match.home_team} />{match.home_team} vs <FlagIcon team={match.away_team} />{match.away_team}
                                     </h3>
                                     <p className="text-sm font-semibold text-slate-600">
                                       {match.status === "finished"
