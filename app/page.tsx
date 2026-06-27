@@ -254,7 +254,7 @@ export default function Home() {
       <header className="flex flex-col gap-4 rounded-lg border-4 border-ink bg-white p-5 shadow-soft sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-wide text-berry">Private World Cup 2026</p>
-          <h1 className="mt-1 text-4xl font-black text-ink sm:text-5xl">WORLD CUP SPÁ - SAND </h1>
+          <h1 className="mt-1 text-4xl font-black text-ink sm:text-5xl">HM Spaa</h1>
           <p className="mt-2 max-w-xl text-sm font-semibold text-slate-700">
             Pick scores, lock them before kickoff, and climb the family leaderboard.
           </p>
@@ -456,8 +456,10 @@ export default function Home() {
                                     </h3>
                                     <p className="text-sm font-semibold text-slate-600">
                                       {match.status === "finished"
-                                        ? `Lokaniðurstaða: ${match.home_score}–${match.away_score}${draft ? ` · Spá þín: ${draft.home_score}–${draft.away_score}` : ""}`
-                                        : "Lokið"}
+                                        ? `Lokaniðurstaða: ${match.home_score}–${match.away_score}${draft ? ` · Spá þín: ${draft.home_score}–${draft.away_score}` : " · Engin spá"}`
+                                        : draft
+                                          ? `Í gangi · Spá þín: ${draft.home_score}–${draft.away_score}`
+                                          : "Í gangi · Engin spá"}
                                     </p>
                                   </div>
                                 </div>
