@@ -57,7 +57,7 @@ export default function AdminPage() {
         return;
       }
 
-      const { data, error } = await supabase.from("matches").select("*").order("kickoff_time", { ascending: false });
+      const { data, error } = await supabase.from("matches").select("*").order("kickoff_time", { ascending: true });
       if (error) {
         setMessage(error.message);
         return;
@@ -333,7 +333,7 @@ export default function AdminPage() {
         throw playerUpdateError;
       }
 
-      const sortedMatches = (matchData as Match[]).sort((a, b) => b.kickoff_time.localeCompare(a.kickoff_time));
+      const sortedMatches = (matchData as Match[]).sort((a, b) => a.kickoff_time.localeCompare(b.kickoff_time));
       setMatches(sortedMatches);
       setDrafts(Object.fromEntries(sortedMatches.map((match) => [match.id, draftFromMatch(match)])));
       setMessage(`Recalculated ${updates.length} predictions.`);
